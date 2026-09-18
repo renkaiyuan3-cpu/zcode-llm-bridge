@@ -11,6 +11,39 @@
 - **程序目录**：`~/.grokbuild-proxy/`
 - **Web Admin**：`http://127.0.0.1:8080/admin`
 
+### 1.1 获取与安装二进制
+
+上游开源项目：[GreyGunG/grokbuild-proxy](https://github.com/GreyGunG/grokbuild-proxy)（Go 语言）。
+
+**方式 A：下载现成二进制（推荐）**
+
+到上游仓库的 [Releases 页面](https://github.com/GreyGunG/grokbuild-proxy/releases) 下载对应平台压缩包
+（Apple Silicon 选 `darwin-arm64`，Intel Mac 选 `darwin-amd64`），解压后放到位：
+
+```bash
+mkdir -p ~/.grokbuild-proxy
+cp ~/Downloads/grokbuild-proxy-*darwin-arm64 ~/.grokbuild-proxy/grokbuild-proxy   # 按实际文件名调整
+chmod +x ~/.grokbuild-proxy/grokbuild-proxy
+```
+
+**方式 B：源码编译**（需要 Go 工具链）
+
+```bash
+git clone https://github.com/GreyGunG/grokbuild-proxy.git
+cd grokbuild-proxy
+go build -o ~/.grokbuild-proxy/grokbuild-proxy
+```
+
+**验证**：
+
+```bash
+~/.grokbuild-proxy/grokbuild-proxy -h
+# 能打印帮助信息即安装成功，继续第 2 节做设备授权
+```
+
+> 提示：`templates/grokbuild-proxy.example.yaml` 是配套的示例配置，安装后在第 2 节授权前
+> 先复制为 `~/.grokbuild-proxy/config.yaml`（README 快速开始已包含此步）。
+
 ---
 
 ## 2. 授权认证与会话隔离机制

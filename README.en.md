@@ -39,7 +39,7 @@ ZCode's custom-provider system is powerful, but wiring CLI subscriptions into it
 
 ## Quick start
 
-> Prerequisites: macOS, the [ZCode](https://z.ai) client, `python3`.
+> Prerequisites: macOS, the [ZCode](https://z.ai) client, `python3`. Make sure ZCode has been launched at least once — the injection scripts write into `~/.zcode/v2/config.json`, which ZCode creates on first start.
 
 ```bash
 git clone https://github.com/renkaiyuan3-cpu/zcode-llm-bridge.git
@@ -49,6 +49,8 @@ cd zcode-llm-bridge
 **Gemini (Antigravity subscription)** — install [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) to `~/.cliproxyapi/cli-proxy-api`, then:
 
 ```bash
+mkdir -p ~/.cliproxyapi
+cp ~/Downloads/cli-proxy-api-darwin-arm64 ~/.cliproxyapi/cli-proxy-api && chmod +x ~/.cliproxyapi/cli-proxy-api
 cp templates/cliproxyapi-gemini.example.yaml ~/.cliproxyapi/config.yaml
 cd ~/.cliproxyapi && ./cli-proxy-api -config config.yaml -antigravity-login && cd -
 ./launchd/install-launchd.sh gemini
@@ -67,7 +69,8 @@ python3 scripts/apply-codex-provider.py
 **Grok Build** — independent device-flow login, isolated from the official Grok CLI:
 
 ```bash
-# Install grokbuild-proxy into ~/.grokbuild-proxy/ (see docs/grokbuild-proxy-guide.md, Chinese)
+# Get the binary (Releases or `go build`): docs/grokbuild-proxy-guide.md §1.1 (Chinese)
+mkdir -p ~/.grokbuild-proxy
 cp templates/grokbuild-proxy.example.yaml ~/.grokbuild-proxy/config.yaml
 cd ~/.grokbuild-proxy && ./grokbuild-proxy -device-login && cd -
 ./launchd/install-launchd.sh grok
@@ -88,6 +91,8 @@ python3 scripts/apply-commandcode-provider.py
 ./launchd/install-launchd.sh restore
 ./scripts/service-manager.sh status   # health check
 ```
+
+**Verify (5 min)**: ① `service-manager.sh status` shows all proxy ports listening and `/v1/models` returning 200 with models; ② after restarting ZCode, the model picker shows the new providers (`Grok Build (订阅)`, `Antigravity (Gemini)`, `Codex`, …); ③ send a message with a new model and watch it hit the local proxy log; ④ send the same reasoning question at `Low` vs `High` — High should visibly think longer (if not, the `reasoningSpec` patch was stripped; see the self-healing checks in the [Chinese README §6](README.md#6-日常运维与故障排除速查手册)).
 
 ## What's inside
 

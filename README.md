@@ -50,6 +50,7 @@ ZCode 的自定义供应商能力很强，但把「各家 CLI 订阅」接进去
 ## 快速开始
 
 > 前置：macOS + [ZCode 客户端](https://z.ai) + `python3`（系统自带即可）。
+> 请确保 ZCode **至少成功启动过一次**——注入脚本要写 `~/.zcode/v2/config.json`，该文件由 ZCode 首次启动生成。
 
 ```bash
 git clone https://github.com/renkaiyuan3-cpu/zcode-llm-bridge.git
@@ -62,11 +63,15 @@ cd zcode-llm-bridge
 
 ```bash
 # 1. 安装 CLIProxyAPI：到 https://github.com/router-for-me/CLIProxyAPI/releases
-#    下载对应架构二进制，放到 ~/.cliproxyapi/cli-proxy-api 并 chmod +x
+#    下载 darwin 对应架构包，解压出的二进制放到位并赋权
+mkdir -p ~/.cliproxyapi
+cp ~/Downloads/cli-proxy-api-darwin-arm64 ~/.cliproxyapi/cli-proxy-api   # 按实际文件名调整
+chmod +x ~/.cliproxyapi/cli-proxy-api
+# 2. 示例配置
 cp templates/cliproxyapi-gemini.example.yaml ~/.cliproxyapi/config.yaml
-# 2. Google OAuth 登录（浏览器授权，凭据落在 ~/.cliproxyapi/auth/）
+# 3. Google OAuth 登录（浏览器授权，凭据落在 ~/.cliproxyapi/auth/）
 cd ~/.cliproxyapi && ./cli-proxy-api -config config.yaml -antigravity-login && cd -
-# 3. 常驻 + 注入 ZCode
+# 4. 常驻 + 注入 ZCode
 ./launchd/install-launchd.sh gemini
 python3 scripts/apply-gemini-provider.py
 ```
@@ -84,7 +89,9 @@ python3 scripts/apply-codex-provider.py
 **Grok Build** —— 独立设备码授权，与官方 Grok CLI 会话隔离（互不踢下线）：
 
 ```bash
-# 1. 安装 grokbuild-proxy 到 ~/.grokbuild-proxy/（来源见 docs/grokbuild-proxy-guide.md）
+# 1. 安装 grokbuild-proxy（获取方式见 docs/grokbuild-proxy-guide.md 第 1.1 节：
+#    Releases 下载或 go build），目标位置 ~/.grokbuild-proxy/grokbuild-proxy
+mkdir -p ~/.grokbuild-proxy
 cp templates/grokbuild-proxy.example.yaml ~/.grokbuild-proxy/config.yaml
 cd ~/.grokbuild-proxy && ./grokbuild-proxy -device-login && cd -
 ./launchd/install-launchd.sh grok
@@ -113,6 +120,33 @@ python3 scripts/apply-commandcode-provider.py
 ```bash
 ./scripts/service-manager.sh status
 ```
+
+### 验收：确认 ZCode 里真的接入成功（5 分钟）
+
+逐条对照，全部通过即接入完成：
+
+1. **代理侧健康**：`./scripts/service-manager.sh status`
+   预期：8080 / 8317 / 8327 三个端口监听正常，两个 `/v1/models` 检测显示 `HTTP 200 OK` 且模型数 > 0
+   （只接了部分通道的，对应端口正常即可）。
+2. **ZCode 侧可见**：重启 ZCode 客户端，打开模型选择器。
+   预期：出现 `Grok Build (订阅)`、`Antigravity (Gemini)`、`Codex`、`OpenCode Go`、`Command Code`
+   等供应商分组（你接了哪几个就出现哪几个）。
+3. **请求真实走通**：选一个新模型发一条消息（比如「用一句话介绍你自己」）。
+   预期：正常回复；同时 `tail -f ~/.grokbuild-proxy/proxy.log`（或 `~/.cliproxyapi/server.log`）
+   能看到这次请求打进了本地代理。
+4. **思考档位真实生效**（本项目的核心卖点，别跳过）：切到 `High` 档发一道多步推理题，
+   再切 `Low` 档发同一道题。
+   预期：High 档响应前有可感知的更长等待，代理日志里 reasoning tokens 明显更大
+   （对照数据见 [docs/commandcode-guide.md](docs/commandcode-guide.md) 第 3.2 节）。
+   如果两档毫无差别 → 八成是 `reasoningSpec` 被 ZCode 回写剥掉了，看第 5 条。
+5. **自愈任务在岗**：
+   ```bash
+   launchctl list com.zcode.restore-reasoning | grep LastExitStatus   # 应为 0
+   tail -5 ~/.zcode/v2/logs/restore-reasoning.err.log                 # 应为空
+   ```
+   报 `Operation not permitted` → 脚本落在了受 TCC 保护的目录，重跑 `./scripts/install-runtime.sh`（详见第 6.6 节）。
+
+任何一步不符，直接去[第 6 节故障排除速查手册](#6-日常运维与故障排除速查手册)对号入座。
 
 ---
 
