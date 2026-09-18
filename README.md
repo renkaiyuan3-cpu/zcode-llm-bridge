@@ -26,6 +26,20 @@
 > - 所有 API Key / OAuth 凭据只存本机（`~/.cliproxyapi/`、`~/.grokbuild-proxy/` 等目录），
 >   **永远不会**进入本仓库或任何网络传输（代理流量除外）。详见 [DISCLAIMER.md](DISCLAIMER.md)。
 
+## 演示
+
+以下均为**真实运行输出**（2026-09-17，macOS + ZCode 实机，密钥已打码）：
+
+<p align="center">
+  <img src="assets/demo-services-status.png" alt="服务巡检一键全绿：3 个 launchd 任务在岗、3 端口监听、模型列表 200" width="780">
+</p>
+<p align="center">
+  <img src="assets/demo-apply-providers.png" alt="5 个供应商一键幂等注入，重复执行只显示「已是最新」" width="780">
+</p>
+<p align="center">
+  <img src="assets/demo-proxy-models.png" alt="本地代理 /v1/models 真实返回的模型列表" width="780">
+</p>
+
 ## 为什么有这个项目
 
 ZCode 的自定义供应商能力很强，但把「各家 CLI 订阅」接进去时会撞上四堵墙，本项目逐一给出了解法：

@@ -24,6 +24,20 @@ local proxies · real reasoning levels · self-healing configs via launchd**
 > Evaluate the risk yourself. All API keys / OAuth tokens stay on your machine and never
 > enter this repository. See [DISCLAIMER.md](DISCLAIMER.md).
 
+## Demo
+
+Real output from a live machine (macOS + ZCode, 2026-09-17; keys masked):
+
+<p align="center">
+  <img src="assets/demo-services-status.png" alt="One-shot health check: 3 launchd jobs, 3 ports listening, /v1/models 200" width="780">
+</p>
+<p align="center">
+  <img src="assets/demo-apply-providers.png" alt="Idempotent provider injection: reruns report up-to-date" width="780">
+</p>
+<p align="center">
+  <img src="assets/demo-proxy-models.png" alt="Model lists served by the local proxies" width="780">
+</p>
+
 ## Why this exists
 
 ZCode's custom-provider system is powerful, but wiring CLI subscriptions into it hits four walls — each solved here:
