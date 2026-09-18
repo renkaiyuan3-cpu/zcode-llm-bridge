@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  参考文件：自愈任务的实际安装由 scripts/install-runtime.sh 完成（推荐），
+  它会生成已替换好家目录的版本。本模板仅供参考结构。
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.zcode.restore-reasoning</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>__HOME__/.zcode-proxy/restore-reasoning.py</string>
+        <string>--quiet</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>__HOME__/.zcode-proxy</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StartInterval</key>
+    <integer>60</integer>
+    <key>StandardOutPath</key>
+    <string>__HOME__/.zcode/v2/logs/restore-reasoning.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME__/.zcode/v2/logs/restore-reasoning.err.log</string>
+</dict>
+</plist>

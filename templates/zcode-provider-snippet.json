@@ -1,0 +1,134 @@
+{
+  "grokbuild-local": {
+    "name": "Grok Build (订阅)",
+    "kind": "anthropic",
+    "options": {
+      "apiKey": "<本机 Key，脚本会自动从 ~/.grokbuild-proxy/data/meta.json 读取>",
+      "baseURL": "http://127.0.0.1:8080",
+      "apiKeyRequired": true
+    },
+    "source": "custom",
+    "models": {
+      "grok-4.6": {
+        "name": "Grok 4.6",
+        "limit": {
+          "context": 500000,
+          "output": 128000
+        },
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "zcode": {
+          "modified": true
+        }
+      },
+      "grok-4.5": {
+        "name": "Grok 4.5",
+        "limit": {
+          "context": 500000,
+          "output": 128000
+        },
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "zcode": {
+          "modified": true
+        }
+      }
+    }
+  },
+  "antigravity-gemini": {
+    "name": "Antigravity (Gemini)",
+    "kind": "anthropic",
+    "options": {
+      "apiKey": "<本机 Key，脚本会自动从 ~/.cliproxyapi/.keys 第一行读取>",
+      "baseURL": "http://127.0.0.1:8317",
+      "apiKeyRequired": true
+    },
+    "source": "custom",
+    "models": {
+      "gemini-3.8-flash-high": {
+        "name": "Gemini 3.8 Flash",
+        "limit": {
+          "context": 1048576,
+          "output": 65536
+        },
+        "modalities": {
+          "input": [
+            "text",
+            "image",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "zcode": {
+          "modified": true
+        }
+      },
+      "gemini-3.7-flash-high": {
+        "name": "Gemini 3.7 Flash",
+        "limit": {
+          "context": 1048576,
+          "output": 65536
+        },
+        "modalities": {
+          "input": [
+            "text",
+            "image",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "zcode": {
+          "modified": true
+        }
+      },
+      "gemini-pro-agent": {
+        "name": "Gemini 3.1 Pro",
+        "limit": {
+          "context": 1048576,
+          "output": 65536
+        },
+        "modalities": {
+          "input": [
+            "text",
+            "image",
+            "audio",
+            "video"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "zcode": {
+          "modified": true
+        }
+      }
+    },
+    "zcode": {
+      "deletedModels": [
+        "gemini-3-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+        "gemini-3.1-flash-image",
+        "gemini-3.6-flash-high"
+      ]
+    }
+  }
+}

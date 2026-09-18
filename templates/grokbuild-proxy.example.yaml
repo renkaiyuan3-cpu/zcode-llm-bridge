@@ -1,0 +1,62 @@
+# grokbuild-proxy 示例配置
+#
+# 安装：二进制放到 ~/.grokbuild-proxy/grokbuild-proxy，本文件保存为
+#       ~/.grokbuild-proxy/config.yaml，然后执行设备码授权：
+#         cd ~/.grokbuild-proxy && ./grokbuild-proxy -device-login
+# 说明：api_key / admin_key 留空即可，设备授权成功后代理会自动生成并写入
+#       data/meta.json；apply-grok-provider.py 会自动读取 api_key。
+listen: "127.0.0.1:8080"
+allow_public_listen: false
+admin_trusted_hosts: []
+data_dir: "./data"
+api_key: ""
+admin_key: ""
+upstream:
+  base_url: "https://cli-chat-proxy.grok.com/v1"
+  client_version: "0.2.93"
+  client_identifier: "grok-pager"
+  user_agent: "grok-pager/0.2.93 grok-shell/0.2.93 (linux; x86_64)"
+  token_auth: "xai-grok-cli"
+oauth:
+  issuer: "https://auth.x.ai"
+  client_id: "b1a00492-073a-47ea-816f-4c329264a828"
+  scope: "openid profile email offline_access grok-cli:access api:access"
+  callback_addr: "127.0.0.1:56122"
+chat_backend: "responses"
+anthropic:
+  enabled: true
+  # 模型别名：把硬编码 Claude 模型名的工具（Claude Code / Cursor 等）映射到
+  # 真实存在的 Grok 模型。该通道没有真 Claude，别名只是改名。
+  model_aliases:
+    claude-sonnet-4: grok-4.5
+    claude-sonnet-4-0: grok-4.5
+    claude-sonnet-4-6: grok-4.5
+    claude-sonnet-5: grok-4.5
+    claude-opus-4: grok-4.5
+    claude-opus-4-6: grok-4.5
+    claude-opus-4-7: grok-4.5
+    claude-opus-4-8: grok-4.5
+    claude-haiku-4: grok-composer-2.5-fast
+    claude-haiku-4-5: grok-composer-2.5-fast
+    sonnet: grok-4.5
+    opus: grok-4.5
+    haiku: grok-composer-2.5-fast
+  passthrough_prefixes: ["grok-"]
+  strip_unknown_betas: true
+  count_tokens: false
+lb:
+  strategy: "priority_rr"
+  sticky_ttl_sec: 3600
+  refresh_skew_sec: 180
+  cooldown:
+    base_sec: 300
+    max_sec: 3600
+proxy:
+  mode: environment
+  url: ""
+limits:
+  max_body_bytes: 20971520
+  request_timeout_sec: 600
+  max_concurrent: 64
+logging:
+  level: info

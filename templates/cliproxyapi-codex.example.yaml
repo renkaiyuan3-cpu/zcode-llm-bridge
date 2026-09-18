@@ -1,0 +1,18 @@
+# CLIProxyAPI 示例配置 —— 仅用于把 Codex（ChatGPT 订阅）的 GPT 模型接入 ZCode
+#
+# 与 config.yaml（Antigravity Gemini）完全隔离：独立端口、独立凭据目录、独立 API Key。
+# 安装：本文件保存为 ~/.cliproxyapi/config-codex.yaml（二进制与 Gemini 共用）。
+# 凭据：把 ChatGPT 订阅的 OAuth 导入 ~/.cliproxyapi/auth-codex/，
+#       见 docs/codex-guide.md 第 4 节，或用 scripts/import-codex-auth.py。
+host: "127.0.0.1"
+port: 8327
+auth-dir: "~/.cliproxyapi/auth-codex"
+api-keys:
+  - "sk-codex-换成本机随机字符串"
+remote-management:
+  allow-remote: false
+  disable-control-panel: true
+debug: false
+logging-to-file: true
+logs-max-total-size-mb: 50
+request-retry: 3

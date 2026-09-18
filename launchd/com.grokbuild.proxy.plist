@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  模板文件：__HOME__ 占位符由 launchd/install-launchd.sh 安装时替换为你的家目录。
+  手动安装：把本文件复制到 ~/Library/LaunchAgents/ 并自行替换全部 __HOME__。
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.grokbuild.proxy</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>__HOME__/.grokbuild-proxy/grokbuild-proxy</string>
+        <string>-config</string>
+        <string>__HOME__/.grokbuild-proxy/config.yaml</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>__HOME__/.grokbuild-proxy</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>__HOME__/.grokbuild-proxy/proxy.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME__/.grokbuild-proxy/proxy.err.log</string>
+</dict>
+</plist>
