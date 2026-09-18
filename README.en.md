@@ -26,7 +26,16 @@ local proxies · real reasoning levels · self-healing configs via launchd**
 
 ## Demo
 
-Real output from a live machine (macOS + ZCode, 2026-09-17; keys masked):
+Live ZCode UI (2026-09-17). The model settings page lists Grok Build / Antigravity Gemini / Codex / Command Code / OpenCode Go; the chat composer’s reasoning picker (Low / Medium / High / Extra High) is the real injected spec, not a dummy dropdown:
+
+<p align="center">
+  <img src="assets/zcode-model-settings.jpg" alt="ZCode model settings with custom providers: Grok Build, Antigravity Gemini, Codex" width="900">
+</p>
+<p align="center">
+  <img src="assets/zcode-reasoning-levels.png" alt="Grok 4.6 reasoning-level picker: Low / Medium / High / Extra High" width="520">
+</p>
+
+Terminal output from the same machine (keys masked):
 
 <p align="center">
   <img src="assets/demo-services-status.png" alt="One-shot health check: 3 launchd jobs, 3 ports listening, /v1/models 200" width="780">

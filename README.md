@@ -28,7 +28,16 @@
 
 ## 演示
 
-以下均为**真实运行输出**（2026-09-17，macOS + ZCode 实机，密钥已打码）：
+ZCode 实机界面（2026-09-17）。模型设置里可以看到 Grok Build / Antigravity Gemini / Codex / Command Code / OpenCode Go；聊天输入栏的思考档位（低 / 中 / 高 / 极高）是真实注入的，不是摆设：
+
+<p align="center">
+  <img src="assets/zcode-model-settings.jpg" alt="ZCode 模型设置：自定义供应商列表含 Grok Build、Antigravity Gemini、Codex" width="900">
+</p>
+<p align="center">
+  <img src="assets/zcode-reasoning-levels.png" alt="Grok 4.6 思考档位下拉：低 / 中 / 高 / 极高" width="520">
+</p>
+
+下面是同一台机器上的终端真实输出（密钥已打码）：
 
 <p align="center">
   <img src="assets/demo-services-status.png" alt="服务巡检一键全绿：3 个 launchd 任务在岗、3 端口监听、模型列表 200" width="780">
