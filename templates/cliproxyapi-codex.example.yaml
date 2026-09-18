@@ -2,8 +2,9 @@
 #
 # 与 config.yaml（Antigravity Gemini）完全隔离：独立端口、独立凭据目录、独立 API Key。
 # 安装：本文件保存为 ~/.cliproxyapi/config-codex.yaml（二进制与 Gemini 共用）。
-# 凭据：把 ChatGPT 订阅的 OAuth 导入 ~/.cliproxyapi/auth-codex/，
-#       见 docs/codex-guide.md 第 4 节，或用 scripts/import-codex-auth.py。
+# 凭据：优先 cli-proxy-api -codex-login 拿独立会话；
+#       或把 ~/.codex/auth.json 用 scripts/import-codex-auth.py 扁平化导入
+#       （见 docs/codex-guide.md 第 4 节）。直接复制原文件会被静默忽略。
 host: "127.0.0.1"
 port: 8327
 auth-dir: "~/.cliproxyapi/auth-codex"

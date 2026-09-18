@@ -10,6 +10,9 @@ import sys
 import traceback
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+from lib_zcode_providers import CFG  # noqa: E402
+
 SCRIPTS = [
     "apply-grok-provider.py",
     "apply-gemini-provider.py",
@@ -26,6 +29,9 @@ def main() -> int:
     if quiet:
         os.environ["ZCODE_RESTORE_QUIET"] = "1"
         sys.argv = [sys.argv[0]]
+    if not Path(CFG).is_file():
+        print(f"跳过：未找到 {CFG}（请先启动一次 ZCode 客户端）")
+        return 0
     for name in SCRIPTS:
         path = HERE / name
         try:

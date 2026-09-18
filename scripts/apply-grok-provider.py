@@ -13,6 +13,7 @@ from lib_zcode_providers import (  # noqa: E402
     load_cfg,
     log,
     now_ms,
+    require_cred,
     save_cfg,
 )
 
@@ -22,9 +23,14 @@ PROVIDER_ID = "grokbuild-local"
 
 def main() -> None:
     import json
+    require_cred(
+        META,
+        "Grok Build",
+        "先安装 grokbuild-proxy 并完成设备码登录（docs/grokbuild-proxy-guide.md / docs/windows-guide.md）。",
+    )
     api_key = json.load(open(META, encoding="utf-8"))["api_key"]
     cfg = load_cfg()
-    provider = ensure_provider(cfg, PROVIDER_ID, {
+    provider, changed = ensure_provider(cfg, PROVIDER_ID, {
         "name": "Grok Build (订阅)",
         "kind": "anthropic",
         "apiFormat": "anthropic-messages",
@@ -41,7 +47,6 @@ def main() -> None:
         "grok-4.6": ("Grok 4.6", True),
         "grok-4.5": ("Grok 4.5", False),
     }
-    changed = False
     for mid, (name, include_xhigh) in specs.items():
         model = models.setdefault(mid, {
             "name": name,

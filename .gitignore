@@ -1,5 +1,10 @@
 .DS_Store
+Thumbs.db
 __pycache__/
 *.pyc
 *.log
 .mimosa/
+.venv/
+venv/
+*.zip
+*.tar.gz

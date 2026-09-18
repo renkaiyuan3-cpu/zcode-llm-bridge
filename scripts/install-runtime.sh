@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # 把自愈脚本装到 ~/.zcode-proxy 并重装 launchd 任务。
+# 跨平台请改用: python3 scripts/bridge.py install restore
 #
 # 为什么不直接从本仓库跑：本仓库在 ~/Desktop 下，macOS TCC 会禁止 launchd
 # 后台进程读取桌面目录，脚本会以 `Operation not permitted` 静默失败，
@@ -14,6 +15,7 @@ PYTHON="/usr/bin/python3"
 
 mkdir -p "$RUNTIME_DIR"
 chmod 700 "$RUNTIME_DIR"
+mkdir -p "$HOME/.zcode/v2/logs"
 
 for f in "$REPO_DIR"/scripts/*.py; do
     cp -f "$f" "$RUNTIME_DIR/$(basename "$f")"

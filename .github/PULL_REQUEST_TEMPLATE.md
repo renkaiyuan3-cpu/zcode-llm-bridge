@@ -11,6 +11,6 @@
 **自查清单**
 - [ ] `grep -rE "sk-[a-zA-Z0-9]{20,}" .` 无真实凭据，无个人路径 / UUID
 - [ ] 档位取值域经过实测，证据写进了注释或文档
-- [ ] 新增 apply 脚本已登记进 `restore-reasoning.py`，并提示重跑 `install-runtime.sh`
+- [ ] 新增 apply 脚本已登记进 `restore-reasoning.py`，并提示重跑 `python3 scripts/bridge.py install restore`
 - [ ] 幂等性验证过：同一脚本连跑两次，第二次输出「已是最新」
 - [ ] README 对照表 / 快速开始 / 端口表已同步更新

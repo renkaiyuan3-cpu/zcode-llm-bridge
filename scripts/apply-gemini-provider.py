@@ -13,6 +13,7 @@ from lib_zcode_providers import (  # noqa: E402
     load_cfg,
     log,
     now_ms,
+    require_cred,
     save_cfg,
 )
 
@@ -36,9 +37,14 @@ TOMBSTONES = [
 
 
 def main() -> None:
+    require_cred(
+        KEYS,
+        "Antigravity Gemini",
+        "先启动 CLIProxyAPI 并把本地 API Key 写入 ~/.cliproxyapi/.keys。",
+    )
     api_key = open(KEYS, encoding="utf-8").read().split("\n")[0].strip()
     cfg = load_cfg()
-    provider = ensure_provider(cfg, PROVIDER_ID, {
+    provider, changed = ensure_provider(cfg, PROVIDER_ID, {
         "name": "Antigravity (Gemini)",
         "kind": "anthropic",
         "apiFormat": "anthropic-messages",
@@ -52,7 +58,6 @@ def main() -> None:
     })
     models = provider.setdefault("models", {})
     keep_ids = {mid for mid, *_ in KEEP}
-    changed = False
     for mid in list(models):
         if mid not in keep_ids:
             del models[mid]

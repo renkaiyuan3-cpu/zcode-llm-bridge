@@ -20,8 +20,9 @@ Grok Build / Antigravity Gemini / Codex / OpenCode Go / Command Code / 自愈任
 ```
 
 **环境**
-- macOS 版本：
+- 系统：macOS / Windows / Linux（版本号）：
 - ZCode 版本：
+- Python 版本（`python3 --version` 或 `py -3 --version`）：
 - CLIProxyAPI / grokbuild-proxy 版本（如涉及）：
 
 **日志片段**

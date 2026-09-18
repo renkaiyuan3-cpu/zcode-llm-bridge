@@ -1,0 +1,59 @@
+name: ci
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+      - name: Syntax
+        run: python -m compileall -q scripts tests
+      - name: Tests
+        run: python -m unittest discover -s tests -v
+      - name: Doctor CLI
+        run: python scripts/bridge.py doctor
+      - name: Secret / personal-path scan
+        run: |
+          set -euo pipefail
+          if grep -RInE --exclude-dir=.git --exclude-dir=.github \
+              '/Users/[A-Za-z0-9._-]+' .; then
+            echo "personal macOS home path leaked" >&2
+            exit 1
+          fi
+          if grep -RInE --exclude-dir=.git \
+              'sk-[a-zA-Z0-9]{24,}' . \
+            | grep -vE '换成本机|你的Key|your-key|placeholder|sk-cpa-|sk-codex-|sk-你的'; then
+            echo "looks like a live API key" >&2
+            exit 1
+          fi
+          python - <<'PY'
+          from pathlib import Path
+          root = Path(".")
+          skip = {".git"}
+          needles = ("BEGIN PRIVATE KEY", "ghp" + "_", "github" + "_pat_")
+          hits = []
+          for path in root.rglob("*"):
+              if any(part in skip for part in path.parts):
+                  continue
+              if not path.is_file():
+                  continue
+              try:
+                  text = path.read_text(encoding="utf-8")
+              except (UnicodeDecodeError, OSError):
+                  continue
+              if any(n in text for n in needles):
+                  hits.append(str(path))
+          if hits:
+              raise SystemExit("secret-looking material: " + ", ".join(hits))
+          print("secret scan clean")
+          PY

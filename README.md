@@ -3,10 +3,11 @@
 # ZCode LLM Bridge
 
 **把 Grok / Gemini / Codex / DeepSeek 订阅接入 [ZCode](https://z.ai)：
-本地代理 · 真实思考档位 · launchd 配置自愈**
+本地代理 · 真实思考档位 · macOS launchd / Windows 计划任务 配置自愈**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-macOS-black)](https://github.com/renkaiyuan3-cpu/zcode-llm-bridge)
+[![CI](https://github.com/renkaiyuan3-cpu/zcode-llm-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/renkaiyuan3-cpu/zcode-llm-bridge/actions/workflows/ci.yml)
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-black)](https://github.com/renkaiyuan3-cpu/zcode-llm-bridge)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://github.com/renkaiyuan3-cpu/zcode-llm-bridge)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -72,17 +73,46 @@ ZCode 的自定义供应商能力很强，但把「各家 CLI 订阅」接进去
 
 ## 快速开始
 
-> 前置：macOS + [ZCode 客户端](https://z.ai) + `python3`（系统自带即可）。
-> 请确保 ZCode **至少成功启动过一次**——注入脚本要写 `~/.zcode/v2/config.json`，该文件由 ZCode 首次启动生成。
+刚 clone 下来请先体检，它会告诉你缺 ZCode、缺 Key、还是缺代理二进制：
+
+```bash
+# macOS / Linux
+python3 scripts/bridge.py doctor
+
+# Windows（PowerShell）
+py -3 scripts\bridge.py doctor
+```
+
+> 前置：[ZCode 客户端](https://z.ai)（macOS / Windows）+ Python 3.9+。
+> ZCode **至少成功启动过一次**——注入脚本写的是 `~/.zcode/v2/config.json`（Windows 为 `%USERPROFILE%\.zcode\v2\config.json`），该文件由首次启动生成。
+> Windows 逐步说明见 **[docs/windows-guide.md](docs/windows-guide.md)**。
 
 ```bash
 git clone https://github.com/renkaiyuan3-cpu/zcode-llm-bridge.git
 cd zcode-llm-bridge
 ```
 
-### 方式 A：订阅 OAuth → 本地代理（Grok / Gemini / Codex）
+### 方式 A：直连官方 API（最快，Mac / Windows 相同，无需本地代理）
 
-**Gemini（Antigravity 订阅）**
+```bash
+# Command Code：把官方后台拿到的 Key 写入本机文件
+mkdir -p ~/.commandcode && echo "sk-你的Key" > ~/.commandcode/api_key
+python3 scripts/apply-commandcode-provider.py
+
+# OpenCode Go 同理：~/.opencode-go/api_key + scripts/apply-opencode-go-provider.py
+```
+
+Windows 把 `python3` 换成 `py -3`，`mkdir -p ~/.commandcode` 换成 `New-Item -ItemType Directory -Force $env:USERPROFILE\.commandcode`。
+
+### 方式 B：订阅 OAuth → 本地代理（Grok / Gemini / Codex）
+
+代理二进制不在本仓库。可手动从上游 Releases 下载，或一键拉取：
+
+```bash
+python3 scripts/bridge.py fetch          # 下载 CLIProxyAPI + grokbuild-proxy 到家目录
+```
+
+### 方式 B1：Gemini（Antigravity 订阅）
 
 ```bash
 # 1. 安装 CLIProxyAPI：到 https://github.com/router-for-me/CLIProxyAPI/releases
@@ -95,18 +125,18 @@ cp templates/cliproxyapi-gemini.example.yaml ~/.cliproxyapi/config.yaml
 # 3. Google OAuth 登录（浏览器授权，凭据落在 ~/.cliproxyapi/auth/）
 cd ~/.cliproxyapi && ./cli-proxy-api -config config.yaml -antigravity-login && cd -
 # 4. 常驻 + 注入 ZCode
-./launchd/install-launchd.sh gemini
-python3 scripts/apply-gemini-provider.py
+	python3 scripts/bridge.py install gemini    # macOS 也可用 ./launchd/install-launchd.sh gemini
+	python3 scripts/apply-gemini-provider.py
 ```
 
-**Codex（ChatGPT 订阅）** —— 复用同一个 CLIProxyAPI 二进制，独立实例：
+**Codex（ChatGPT 订阅）** —— 复用同一个 CLIProxyAPI 二进制，独立实例（Windows 优先 `-codex-login`，见 Windows 指南）：
 
 ```bash
 cp templates/cliproxyapi-codex.example.yaml ~/.cliproxyapi/config-codex.yaml
 # 导入 ChatGPT 订阅凭据：先确保 Codex CLI / ChatGPT 桌面端登录过，
 # 然后按 docs/codex-guide.md 第 4 节运行扁平化导入
-./launchd/install-launchd.sh codex
-python3 scripts/apply-codex-provider.py
+	python3 scripts/bridge.py install codex
+	python3 scripts/apply-codex-provider.py
 ```
 
 **Grok Build** —— 独立设备码授权，与官方 Grok CLI 会话隔离（互不踢下线）：
@@ -117,38 +147,30 @@ python3 scripts/apply-codex-provider.py
 mkdir -p ~/.grokbuild-proxy
 cp templates/grokbuild-proxy.example.yaml ~/.grokbuild-proxy/config.yaml
 cd ~/.grokbuild-proxy && ./grokbuild-proxy -device-login && cd -
-./launchd/install-launchd.sh grok
-python3 scripts/apply-grok-provider.py
-```
-
-### 方式 B：直连官方 API（OpenCode Go / Command Code，无需本地代理）
-
-```bash
-# Command Code：把官方后台拿到的 Key 写入本机文件
-mkdir -p ~/.commandcode && echo "sk-你的Key" > ~/.commandcode/api_key
-python3 scripts/apply-commandcode-provider.py
-
-# OpenCode Go 同理：~/.opencode-go/api_key + scripts/apply-opencode-go-provider.py
+	python3 scripts/bridge.py install grok
+	python3 scripts/apply-grok-provider.py
 ```
 
 ### 最后一步（必做）：安装思考档位自愈任务
 
 ```bash
-./launchd/install-launchd.sh restore
+python3 scripts/bridge.py install restore     # macOS launchd / Windows 计划任务 / Linux systemd
+# macOS 旧入口：./launchd/install-launchd.sh restore
 ```
 
-没有它，ZCode 重启时会把思考档位悄悄剥掉（见[第 4 节](#4-macos-launchd-常驻后台托管机制)）。
+没有它，ZCode 重启时会把思考档位悄悄剥掉（见[第 4 节](#4-常驻后台macos-launchd--windows-计划任务)）。
 然后**重启 ZCode 客户端**，模型选择器里即可看到新供应商。巡检：
 
 ```bash
-./scripts/service-manager.sh status
+python3 scripts/bridge.py status              # 跨平台
+./scripts/service-manager.sh status           # macOS 旧入口
 ```
 
 ### 验收：确认 ZCode 里真的接入成功（5 分钟）
 
 逐条对照，全部通过即接入完成：
 
-1. **代理侧健康**：`./scripts/service-manager.sh status`
+1. **代理侧健康**：`python3 scripts/bridge.py status`
    预期：8080 / 8317 / 8327 三个端口监听正常，两个 `/v1/models` 检测显示 `HTTP 200 OK` 且模型数 > 0
    （只接了部分通道的，对应端口正常即可）。
 2. **ZCode 侧可见**：重启 ZCode 客户端，打开模型选择器。
@@ -164,10 +186,12 @@ python3 scripts/apply-commandcode-provider.py
    如果两档毫无差别 → 八成是 `reasoningSpec` 被 ZCode 回写剥掉了，看第 5 条。
 5. **自愈任务在岗**：
    ```bash
-   launchctl list com.zcode.restore-reasoning | grep LastExitStatus   # 应为 0
+   python3 scripts/bridge.py doctor                                   # 跨平台，看 Restore 那一行
+   launchctl list com.zcode.restore-reasoning | grep LastExitStatus   # macOS，应为 0
    tail -5 ~/.zcode/v2/logs/restore-reasoning.err.log                 # 应为空
    ```
-   报 `Operation not permitted` → 脚本落在了受 TCC 保护的目录，重跑 `./scripts/install-runtime.sh`（详见第 6.6 节）。
+   macOS 报 `Operation not permitted` → 脚本落在了受 TCC 保护的目录，重跑 `python3 scripts/bridge.py install restore`（详见第 6.6 节）。
+   Windows 看任务计划程序里的 `ZCodeLLMBridge.RestoreReasoning`。
 
 任何一步不符，直接去[第 6 节故障排除速查手册](#6-日常运维与故障排除速查手册)对号入座。
 
@@ -183,16 +207,17 @@ python3 scripts/apply-commandcode-provider.py
   - [3.3 OpenCode Go（DeepSeek V4.1 Flash）](#33-opencode-godeepseek-v41-flash)
   - [3.4 Command Code（DeepSeek V4.1 Flash + GPT-5.6 Luna）](#34-command-codedeepseek-v41-flash--gpt-56-luna)
   - [3.5 Codex（ChatGPT 订阅：GPT-6 / GPT-5.6）](#35-codexchatgpt-订阅gpt-6--gpt-56)
-- [4. macOS launchd 常驻后台托管机制](#4-macos-launchd-常驻后台托管机制)
+- [4. 常驻后台：macOS launchd / Windows 计划任务](#4-常驻后台macos-launchd--windows-计划任务)
 - [5. 项目目录与工具链使用说明](#5-项目目录与工具链使用说明)
 - [6. 日常运维与故障排除速查手册](#6-日常运维与故障排除速查手册)
+- [Windows 指南](docs/windows-guide.md) · [还能接什么](docs/roadmap.md)
 - [致谢](#致谢) · [License 与免责](#license-与免责)
 
 ---
 
 ## 1. 整体架构与模型对照
 
-Grok、Gemini、Codex 走本地回环代理，OpenCode Go 与 Command Code 直连官方 API。思考档位由 `~/.zcode/v2/config.json` 注入，`launchd` 负责代理常驻和档位补丁自愈。
+Grok、Gemini、Codex 走本地回环代理，OpenCode Go 与 Command Code 直连官方 API。思考档位由 `~/.zcode/v2/config.json` 注入；macOS 用 `launchd`、Windows 用计划任务、Linux 用 systemd --user，负责代理常驻和档位补丁自愈。
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────────┐
@@ -334,9 +359,16 @@ HTTP 400 Invalid option: expected one of "low"|"medium"|"high"|"xhigh"|"max"
 
 ---
 
-## 4. macOS launchd 常驻后台托管机制
+## 4. 常驻后台：macOS launchd / Windows 计划任务
 
-为了让代理服务像系统原生服务一样后台无感运行，我们在 `~/Library/LaunchAgents/` 下注册了守护配置文件：
+为了让代理服务像系统原生服务一样后台无感运行，macOS 在 `~/Library/LaunchAgents/` 下注册 launchd；Windows 注册任务计划程序（任务名 `ZCodeLLMBridge.*`，详见 [docs/windows-guide.md](docs/windows-guide.md)）。统一入口：
+
+```bash
+python3 scripts/bridge.py install restore|grok|gemini|codex|all
+python3 scripts/bridge.py status
+```
+
+macOS 仍可用原来的 plist：
 
 1. **`com.grokbuild.proxy.plist`**：托管 `grokbuild-proxy -config config.yaml`。
 2. **`com.cliproxyapi.plist`**：托管 `cli-proxy-api -config config.yaml`（Antigravity Gemini，8317）。
@@ -348,7 +380,7 @@ HTTP 400 Invalid option: expected one of "low"|"medium"|"high"|"xhigh"|"max"
 - `KeepAlive = true`：异常崩溃或进程被 Kill 后系统自动秒级拉起。
 - `StandardOutPath` / `StandardErrorPath`：日志重定向至各代理目录下的日志文件中，便于实时跟踪排查。
 
-*(plist 模板位于本项目的 `launchd/` 目录，用 `./launchd/install-launchd.sh {grok|gemini|codex|restore|all}` 一键渲染安装)*
+*(plist 模板位于 `launchd/`，macOS 也可用 `./launchd/install-launchd.sh {grok|gemini|codex|restore|all}`。Windows 不要拷这些 plist，用 `bridge.py install`。)*
 
 ### ⚠️ 坑：launchd 读不到桌面目录（TCC）
 
@@ -367,11 +399,11 @@ launchd 后台进程没有权限读取，而手动在终端跑同一个脚本却
 **解法**：脚本运行时副本放家目录，绕开 TCC。安装命令：
 
 ```bash
-./scripts/install-runtime.sh
+python3 scripts/bridge.py install restore
 ```
 
-它会把 `scripts/*.py` 同步到 `~/.zcode-proxy/`，并据此重写 `~/Library/LaunchAgents/com.zcode.restore-reasoning.plist`、重载任务。
-**每次改动 `scripts/` 下的脚本后，都要重跑一次 `install-runtime.sh`**，否则运行时副本不会更新。
+它会把 `scripts/*.py` 同步到 `~/.zcode-proxy/`，并安装对应平台的自愈任务（macOS 重写 launchd plist，Windows 注册计划任务）。
+**每次改动 `scripts/` 下的脚本后，都要重跑一次 install restore**，否则运行时副本不会更新。
 
 排查该任务是否健康：
 ```bash
@@ -384,35 +416,41 @@ tail -5 ~/.zcode/v2/logs/restore-reasoning.err.log                 # 应为空/�
 ## 5. 项目目录与工具链使用说明
 
 ```
-zcode-llm-bridge/
-├── README.md                          # 本经验总览指南（中文）
-├── README.en.md                       # English version
-├── DISCLAIMER.md                      # 风险与免责声明（先读）
-├── CONTRIBUTING.md                    # 如何新增一个供应商
-├── docs/                              # 深度技术文档
-│   ├── reasoning-spec-analysis.md     # ZCode reasoningSpec 源码逆向与参数注入机制深度分析
-│   ├── grokbuild-proxy-guide.md       # Grok Build 代理接入与设备码授权指南
-│   ├── cliproxyapi-gemini-guide.md    # Antigravity Gemini 代理接入指南
-│   ├── opencode-go-guide.md           # OpenCode Go DeepSeek 接入指南
-│   ├── commandcode-guide.md           # Command Code（DeepSeek V4.1 Flash / GPT-5.6 Luna）接入指南
-│   └── codex-guide.md                 # Codex（ChatGPT 订阅 GPT-6 / GPT-5.6）接入指南
-├── scripts/                           # 运维与自动化工具
-│   ├── apply-gemini-provider.py       # 一键幂等注入 Gemini 3 个模型到 ZCode 配置
-│   ├── apply-grok-provider.py         # 一键幂等注入 Grok 模型到 ZCode 配置
-│   ├── apply-opencode-go-provider.py  # 一键接入 OpenCode Go DeepSeek V4.1 Flash
-│   ├── apply-commandcode-provider.py  # 一键接入 Command Code 两个模型
-│   ├── apply-codex-provider.py        # 一键接入 Codex 4 个 GPT 模型
-│   ├── restore-reasoning.py           # 检查并补回被 ZCode 回写剥掉的思考补丁
-│   ├── install-runtime.sh             # 同步脚本到 ~/.zcode-proxy 并重装自愈 launchd 任务
-│   ├── service-manager.sh             # 本地代理常驻服务一键管理工具（状态/启停/日志）
-│   └── lib_zcode_providers.py         # 共享的 reasoningSpec 写入逻辑
-├── launchd/                           # macOS launchd plist 模板与安装器
-│   ├── com.cliproxyapi.plist          #（__HOME__ 占位符在安装时渲染）
-│   ├── com.cliproxyapi.codex.plist
-│   ├── com.grokbuild.proxy.plist
-│   ├── com.zcode.restore-reasoning.plist
-│   └── install-launchd.sh             # 一键渲染 + 装载 + 启动
-└── templates/                         # 纯净配置模板（无任何真实凭据）
+	zcode-llm-bridge/
+	├── README.md                          # 本经验总览指南（中文）
+	├── README.en.md                       # English version
+	├── DISCLAIMER.md                      # 风险与免责声明（先读）
+	├── CONTRIBUTING.md                    # 如何新增一个供应商
+	├── CODE_OF_CONDUCT.md
+	├── SECURITY.md
+	├── docs/                              # 深度技术文档
+	│   ├── windows-guide.md               # Windows 计划任务 / 路径 / 验收
+	│   ├── roadmap.md                     # 还能接什么
+	│   ├── reasoning-spec-analysis.md
+	│   ├── grokbuild-proxy-guide.md
+	│   ├── cliproxyapi-gemini-guide.md
+	│   ├── opencode-go-guide.md
+	│   ├── commandcode-guide.md
+	│   └── codex-guide.md
+	├── scripts/
+	│   ├── bridge.py                      # 跨平台入口：doctor / fetch / install / status
+	│   ├── apply-*-provider.py            # 幂等注入各供应商
+	│   ├── import-codex-auth.py           # 扁平化导入 ~/.codex/auth.json
+	│   ├── restore-reasoning.py           # 自愈：补回被剥掉的思考补丁
+	│   ├── install-runtime.sh             # macOS 旧入口
+	│   ├── service-manager.sh             # macOS 旧入口
+	│   └── lib_zcode_providers.py
+	├── windows/                           # PowerShell 包装（调用 bridge.py）
+	│   ├── install-runtime.ps1
+	│   ├── service-manager.ps1
+	│   └── fetch-binaries.ps1
+	├── launchd/                           # macOS launchd plist 模板与安装器
+	│   ├── com.cliproxyapi.plist
+	│   ├── com.cliproxyapi.codex.plist
+	│   ├── com.grokbuild.proxy.plist
+	│   ├── com.zcode.restore-reasoning.plist
+	│   └── install-launchd.sh
+	└── templates/                         # 纯净配置模板（无任何真实凭据）
     ├── zcode-provider-snippet.json    # ZCode 供应商配置结构示例
     ├── cliproxyapi-gemini.example.yaml
     ├── cliproxyapi-codex.example.yaml
@@ -429,10 +467,11 @@ zcode-llm-bridge/
 ### 6.1 服务状态一键巡检
 使用本项目提供的脚本：
 ```bash
-./scripts/service-manager.sh status
+python3 scripts/bridge.py status
+./scripts/service-manager.sh status    # macOS 旧入口
 ```
 该命令会自动检查：
-1. `launchctl` 中服务的运行状态与退出码。
+1. 调度器（launchd / 计划任务）中服务是否在册。
 2. `8080`、`8317`、`8327` 三个端口的本地监听状态。
 3. `http://127.0.0.1:8080/readyz` 健康检测。
 4. `http://127.0.0.1:8317/v1/models` 与 `http://127.0.0.1:8327/v1/models` 带鉴权检测（含模型数量）。
@@ -440,7 +479,8 @@ zcode-llm-bridge/
 ### 6.2 一键重启服务
 ```bash
 # 重启全部服务
-./scripts/service-manager.sh restart
+python3 scripts/bridge.py restart all
+./scripts/service-manager.sh restart     # macOS 旧入口
 
 # 单独重启 Grok
 ./scripts/service-manager.sh restart-grok
@@ -498,8 +538,8 @@ Codex 的模型目录里写了 `ultra`，但 CPA 实测拒收，合法值只有 
 tail -20 ~/.zcode/v2/logs/restore-reasoning.err.log
 ```
 若报 `Operation not permitted`，说明脚本路径又落回了受 TCC 保护的目录（桌面/文稿/下载）。
-执行 `./scripts/install-runtime.sh` 把运行时副本装到 `~/.zcode-proxy/` 即可。
-注意：新写的 `apply-*.py` 必须重跑一次 `install-runtime.sh`，否则自愈任务读不到它。
+执行 `python3 scripts/bridge.py install restore` 把运行时副本装到 `~/.zcode-proxy/` 即可。
+注意：新写的 `apply-*.py` 必须重跑一次 install restore，否则自愈任务读不到它。
 
 ### 6.7 Codex 模型列表为空（最隐蔽的坑）
 
@@ -509,11 +549,12 @@ tail -20 ~/.zcode/v2/logs/restore-reasoning.err.log
 
 ```bash
 # 诊断：确认账号文件是扁平结构且带 type
-python3 -c "
-import json,glob
-for f in glob.glob('$HOME/.cliproxyapi/auth-codex/*.json'):
-    d=json.load(open(f)); print(f.split('/')[-1], '| type =', d.get('type'), '| 扁平 =', 'access_token' in d)
-"
+	python3 scripts/import-codex-auth.py --help
+	python3 -c "
+	import json,glob,os
+	for f in glob.glob(os.path.expanduser('~/.cliproxyapi/auth-codex/*.json')):
+	    d=json.load(open(f)); print(os.path.basename(f), '| type =', d.get('type'), '| 扁平 =', 'access_token' in d)
+	"
 # 期望输出：type = codex | 扁平 = True
 ```
 
@@ -542,6 +583,8 @@ for f in glob.glob('$HOME/.cliproxyapi/auth-codex/*.json'):
 
 代码以 [MIT License](LICENSE) 开源。**MIT 仅覆盖仓库内的代码与文档，不覆盖你的使用方式** ——
 订阅额度转 API 的合规风险由使用者自行承担。详见 [DISCLAIMER.md](DISCLAIMER.md)。
+
+参与讨论请遵守 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)；安全漏洞请按 [SECURITY.md](SECURITY.md) 私下报告。下一步想接哪些通道见 [docs/roadmap.md](docs/roadmap.md)。
 
 <div align="center">
 

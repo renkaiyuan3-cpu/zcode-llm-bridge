@@ -20,6 +20,7 @@ from lib_zcode_providers import (  # noqa: E402
     log,
     now_ms,
     openai_reasoning_spec,
+    require_cred,
     save_cfg,
 )
 
@@ -69,12 +70,15 @@ INPUT_MODALITIES = ["text", "image"]
 
 
 def main() -> None:
-    if not os.path.exists(KEYS):
-        raise SystemExit(f"❌ 找不到 {KEYS}\n   先启动 Codex 版代理并写入 API Key。")
+    require_cred(
+        KEYS,
+        "Codex",
+        "先启动 Codex 版 CLIProxyAPI 并把本地 API Key 写入 ~/.cliproxyapi/.keys-codex。",
+    )
     api_key = open(KEYS, encoding="utf-8").read().split("\n")[0].strip()
 
     cfg = load_cfg()
-    provider = ensure_provider(cfg, PROVIDER_ID, {
+    provider, changed = ensure_provider(cfg, PROVIDER_ID, {
         "name": "Codex",
         "kind": "openai-compatible",
         "apiFormat": "openai-chat-completions",
@@ -86,16 +90,12 @@ def main() -> None:
             "apiKeyRequired": True,
         },
     })
-    # API Key 轮换后要跟得上
-    if provider.setdefault("options", {}).get("apiKey") != api_key:
-        provider["options"]["apiKey"] = api_key
-
     models = provider.setdefault("models", {})
     keep_ids = {mid for mid, *_ in KEEP}
     stale = [mid for mid in list(models) if mid not in keep_ids]
     for mid in stale:
         del models[mid]
-    changed = bool(stale)
+    changed = changed or bool(stale)
 
     spec = openai_reasoning_spec(LEVELS, DEFAULT_LEVEL)
     for mid, name, ctx, out in KEEP:

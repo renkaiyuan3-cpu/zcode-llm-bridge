@@ -18,7 +18,11 @@
 **方式 A：下载现成二进制（推荐）**
 
 到上游仓库的 [Releases 页面](https://github.com/GreyGunG/grokbuild-proxy/releases) 下载对应平台压缩包
-（Apple Silicon 选 `darwin-arm64`，Intel Mac 选 `darwin-amd64`），解压后放到位：
+（Apple Silicon 选 `Darwin_arm64`，Intel Mac 选 `Darwin_x86_64`，
+Windows x64 选 `Windows_x86_64.zip`，Windows ARM 选 `Windows_arm64.zip`），解压后放到位。
+也可在仓库根目录跑 `python3 scripts/bridge.py fetch` 自动下载。
+
+macOS 手动示例：
 
 ```bash
 mkdir -p ~/.grokbuild-proxy

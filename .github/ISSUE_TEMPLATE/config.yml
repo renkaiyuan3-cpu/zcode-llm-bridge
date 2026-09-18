@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 先看故障排除
+    url: https://github.com/renkaiyuan3-cpu/zcode-llm-bridge/blob/main/README.md#6-日常运维与故障排除速查手册
+    about: 档位 400、模型列表为空、自愈任务失败，README 第 6 节大多有现成答案。
+  - name: Windows 接入
+    url: https://github.com/renkaiyuan3-cpu/zcode-llm-bridge/blob/main/docs/windows-guide.md
+    about: Windows 用计划任务而不是 launchd，先跑 py -3 scripts/bridge.py doctor。
+  - name: 免责声明
+    url: https://github.com/renkaiyuan3-cpu/zcode-llm-bridge/blob/main/DISCLAIMER.md
+    about: 非官方项目，订阅转 API 有封号风险。

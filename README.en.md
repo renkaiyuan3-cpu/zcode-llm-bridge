@@ -3,10 +3,11 @@
 # ZCode LLM Bridge
 
 **Bridge your Grok / Gemini / Codex / DeepSeek subscriptions into [ZCode](https://z.ai):
-local proxies · real reasoning levels · self-healing configs via launchd**
+local proxies · real reasoning levels · self-healing via launchd / Windows Task Scheduler**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-macOS-black)](https://github.com/renkaiyuan3-cpu/zcode-llm-bridge)
+[![CI](https://github.com/renkaiyuan3-cpu/zcode-llm-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/renkaiyuan3-cpu/zcode-llm-bridge/actions/workflows/ci.yml)
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-black)](https://github.com/renkaiyuan3-cpu/zcode-llm-bridge)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://github.com/renkaiyuan3-cpu/zcode-llm-bridge)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -55,29 +56,44 @@ ZCode's custom-provider system is powerful, but wiring CLI subscriptions into it
 | :--- | :--- | :--- |
 | **No subscription channel** | ZCode's built-in Agent CLI only supports GLM (`enabledBuiltinAgentCliProviders = ["glm"]`) | Local proxies (CLIProxyAPI / grokbuild-proxy) turn subscription OAuth into standard OpenAI / Anthropic protocols |
 | **Fake reasoning UI** | You configure Low/Medium/High in the UI, but a packet capture shows **no `thinking` field at all** in the request | Reverse-engineered `reasoningSpec` injection (see the [Chinese README §2](README.md#2-核心技术突破zcode-思考模式reasoning深度逆向)), including the second variant: levels whose values the upstream rejects |
-| **Config wiped on restart** | ZCode quietly strips top-level `reasoningSpec` when it rewrites its config | A `com.zcode.restore-reasoning` launchd job re-applies the patch every 60 s, idempotently |
+| **Config wiped on restart** | ZCode quietly strips top-level `reasoningSpec` when it rewrites its config | A self-healing job (macOS launchd / Windows Task Scheduler) re-applies the patch every ~60 s, idempotently |
 | **Credential kicking** | Subscription OAuth refresh tokens rotate on use, so sharing them between clients logs the other one out | Independent device-flow authorization per channel with isolated credential stores |
 
 **5 channels**: Grok Build (local proxy :8080, Anthropic protocol), Antigravity Gemini (CLIProxyAPI :8317, Anthropic), Codex / ChatGPT subscription (CLIProxyAPI :8327, OpenAI-compatible), OpenCode Go (direct API, DeepSeek V4.1 Flash), Command Code (direct API, DeepSeek + GPT-5.6 Luna). Full comparison table in the [Chinese README](README.md#1-整体架构与模型对照).
 
 ## Quick start
 
-> Prerequisites: macOS, the [ZCode](https://z.ai) client, `python3`. Make sure ZCode has been launched at least once — the injection scripts write into `~/.zcode/v2/config.json`, which ZCode creates on first start.
+Clone, then run the doctor. It tells you whether you are missing ZCode, an API key, or a proxy binary:
+
+```bash
+python3 scripts/bridge.py doctor          # macOS / Linux
+py -3 scripts\bridge.py doctor            # Windows
+```
+
+> Prerequisites: [ZCode](https://z.ai) (macOS or Windows) and Python 3.9+. Launch ZCode **once** so it creates `~/.zcode/v2/config.json` (`%USERPROFILE%\.zcode\v2\config.json` on Windows). Full Windows walkthrough: [docs/windows-guide.md](docs/windows-guide.md) (Chinese).
 
 ```bash
 git clone https://github.com/renkaiyuan3-cpu/zcode-llm-bridge.git
 cd zcode-llm-bridge
 ```
 
-**Gemini (Antigravity subscription)** — install [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) to `~/.cliproxyapi/cli-proxy-api`, then:
+**Fastest path (no local proxy)** — Command Code / OpenCode Go, identical on Mac and Windows:
+
+```bash
+mkdir -p ~/.commandcode && echo "sk-your-key" > ~/.commandcode/api_key
+python3 scripts/apply-commandcode-provider.py
+python3 scripts/bridge.py install restore
+```
+
+**Gemini (Antigravity subscription)** — `python3 scripts/bridge.py fetch` or install [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) to `~/.cliproxyapi/cli-proxy-api`, then:
 
 ```bash
 mkdir -p ~/.cliproxyapi
 cp ~/Downloads/cli-proxy-api-darwin-arm64 ~/.cliproxyapi/cli-proxy-api && chmod +x ~/.cliproxyapi/cli-proxy-api
 cp templates/cliproxyapi-gemini.example.yaml ~/.cliproxyapi/config.yaml
 cd ~/.cliproxyapi && ./cli-proxy-api -config config.yaml -antigravity-login && cd -
-./launchd/install-launchd.sh gemini
-python3 scripts/apply-gemini-provider.py
+	python3 scripts/bridge.py install gemini
+	python3 scripts/apply-gemini-provider.py
 ```
 
 **Codex (ChatGPT subscription)** — same binary, isolated instance on port 8327:
@@ -85,8 +101,8 @@ python3 scripts/apply-gemini-provider.py
 ```bash
 cp templates/cliproxyapi-codex.example.yaml ~/.cliproxyapi/config-codex.yaml
 # Import the flattened OAuth credentials: docs/codex-guide.md §4 (Chinese)
-./launchd/install-launchd.sh codex
-python3 scripts/apply-codex-provider.py
+	python3 scripts/bridge.py install codex
+	python3 scripts/apply-codex-provider.py
 ```
 
 **Grok Build** — independent device-flow login, isolated from the official Grok CLI:
@@ -96,26 +112,18 @@ python3 scripts/apply-codex-provider.py
 mkdir -p ~/.grokbuild-proxy
 cp templates/grokbuild-proxy.example.yaml ~/.grokbuild-proxy/config.yaml
 cd ~/.grokbuild-proxy && ./grokbuild-proxy -device-login && cd -
-./launchd/install-launchd.sh grok
-python3 scripts/apply-grok-provider.py
-```
-
-**OpenCode Go / Command Code (direct API, no proxy)**:
-
-```bash
-mkdir -p ~/.commandcode && echo "sk-your-key" > ~/.commandcode/api_key
-python3 scripts/apply-commandcode-provider.py
-# OpenCode Go: ~/.opencode-go/api_key + scripts/apply-opencode-go-provider.py
+	python3 scripts/bridge.py install grok
+	python3 scripts/apply-grok-provider.py
 ```
 
 **Last step (required)** — install the reasoning self-healing job, then restart ZCode:
 
 ```bash
-./launchd/install-launchd.sh restore
-./scripts/service-manager.sh status   # health check
+python3 scripts/bridge.py install restore
+python3 scripts/bridge.py status
 ```
 
-**Verify (5 min)**: ① `service-manager.sh status` shows all proxy ports listening and `/v1/models` returning 200 with models; ② after restarting ZCode, the model picker shows the new providers (`Grok Build (订阅)`, `Antigravity (Gemini)`, `Codex`, …); ③ send a message with a new model and watch it hit the local proxy log; ④ send the same reasoning question at `Low` vs `High` — High should visibly think longer (if not, the `reasoningSpec` patch was stripped; see the self-healing checks in the [Chinese README §6](README.md#6-日常运维与故障排除速查手册)).
+**Verify (5 min)**: ① `bridge.py status` shows the proxy ports you actually installed and `/v1/models` returning 200; ② after restarting ZCode, the model picker shows the new providers; ③ send a message and watch it hit the local proxy log; ④ send the same reasoning question at `Low` vs `High` — High should think longer (if not, the `reasoningSpec` patch was stripped; see [Chinese README §6](README.md#6-日常运维与故障排除速查手册)).
 
 ## What's inside
 
@@ -134,8 +142,10 @@ python3 scripts/apply-commandcode-provider.py
 
 - `scripts/` — idempotent one-shot scripts that register each provider into `~/.zcode/v2/config.json`, injecting **both** the UI reasoning variants and the real `reasoningSpec` patch (Anthropic `thinking.budgetTokens` / OpenAI `reasoning_effort`).
 - `scripts/lib_zcode_providers.py` — shared spec builders; the patch is written to three locations (`reasoning`, `reasoningSpec`, `zcode.reasoning`) so it survives ZCode's config rewrite.
-- `launchd/` — plist templates (`__HOME__` placeholder) + `install-launchd.sh` renderer. The self-healing job re-applies reasoning patches every 60 s.
-- `docs/` — deep-dive guides per provider (Chinese), including the reverse-engineering notes and every pitfall we hit: flattened Codex credentials, rejected `ultra` level, the missing `off` level, the 272K pricing cliff on Codex 1M context, macOS TCC blocking launchd on `~/Desktop`, and more.
+- `scripts/bridge.py` — cross-platform entry: `doctor`, `fetch` (download upstream binaries), `install`, `status`, `restart`, `logs`.
+- `windows/` — PowerShell wrappers around `bridge.py`. Task Scheduler job names: `ZCodeLLMBridge.*`.
+- `launchd/` — macOS plist templates (`__HOME__` placeholder) + `install-launchd.sh`.
+- `docs/` — deep-dive guides per provider (Chinese), including [windows-guide.md](docs/windows-guide.md) and [roadmap.md](docs/roadmap.md).
 - `templates/` — sanitized example configs. No real credentials, ever.
 
 ## Hard-won gotchas (highlights)
@@ -148,10 +158,10 @@ python3 scripts/apply-commandcode-provider.py
 
 ## Contributing
 
-PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the "add a new provider" recipe (protocol choice, level-domain verification checklist, launchd registration).
+PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the "add a new provider" recipe (protocol choice, level-domain verification checklist, scheduler registration).
 
 ## Credits & License
 
 Built on the shoulders of [router-for-me/CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) and [GreyGunG/grokbuild-proxy](https://github.com/GreyGunG/grokbuild-proxy); inspired by [claude-code-router](https://github.com/musistudio/claude-code-router), [antigravity-claude-proxy](https://github.com/badrisnarayanan/antigravity-claude-proxy) and [copilot-api](https://github.com/ericc-ch/copilot-api).
 
-Code is released under the [MIT License](LICENSE). The license covers the code in this repository only — **not** your usage of it against upstream terms of service. See [DISCLAIMER.md](DISCLAIMER.md).
+Code is released under the [MIT License](LICENSE). The license covers the code in this repository only — **not** your usage of it against upstream terms of service. See [DISCLAIMER.md](DISCLAIMER.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), and [SECURITY.md](SECURITY.md).

@@ -81,26 +81,12 @@ CPA 的账号文件是**扁平结构**，必须带 `type: "codex"`：
 导入命令（`expired` 从 access_token 的 JWT `exp` 解析，不要手写）：
 
 ```bash
-python3 - <<'PY'
-import json, base64, datetime, os
-src = json.load(open(os.path.expanduser("~/.codex/auth.json")))
-t = src["tokens"]
-p = t["access_token"].split(".")[1]; p += "=" * (-len(p) % 4)
-exp = datetime.datetime.fromtimestamp(json.loads(base64.urlsafe_b64decode(p))["exp"]).astimezone()
-q = t["id_token"].split(".")[1]; q += "=" * (-len(q) % 4)
-email = json.loads(base64.urlsafe_b64decode(q)).get("email", "unknown")
-out = {
-    "access_token": t["access_token"], "refresh_token": t["refresh_token"],
-    "id_token": t["id_token"], "account_id": t["account_id"],
-    "email": email, "expired": exp.isoformat(),
-    "last_refresh": src.get("last_refresh"), "type": "codex",
-}
-dst = os.path.expanduser(f"~/.cliproxyapi/auth-codex/codex-{email}.json")
-os.makedirs(os.path.dirname(dst), exist_ok=True)
-json.dump(out, open(dst, "w"), indent=1); os.chmod(dst, 0o600)
-print("导入完成:", dst)
-PY
+python3 scripts/import-codex-auth.py
+# Windows: py -3 scripts\import-codex-auth.py
 ```
+
+脚本默认读 `~/.codex/auth.json`，写出 `~/.cliproxyapi/auth-codex/codex-<email>.json`。
+Windows 上更推荐直接 `cli-proxy-api.exe -config config-codex.yaml -codex-login`，拿一份独立凭据，避免和桌面端互踢。
 
 ### ⚠️ 刷新令牌轮换风险
 

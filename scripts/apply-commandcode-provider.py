@@ -21,6 +21,7 @@ from lib_zcode_providers import (  # noqa: E402
     log,
     now_ms,
     openai_reasoning_spec,
+    quiet,
     save_cfg,
 )
 
@@ -82,6 +83,9 @@ def load_api_key() -> str:
         return env
     if os.path.isfile(API_KEY_FILE):
         return open(API_KEY_FILE, encoding="utf-8").read().strip()
+    if quiet():
+        log("跳过 Command Code：未找到 ~/.commandcode/api_key")
+        raise SystemExit(0)
     raise SystemExit(
         "缺少 Command Code API Key。请写入 ~/.commandcode/api_key，"
         "或设置环境变量 COMMANDCODE_API_KEY 后再跑本脚本。"
@@ -102,7 +106,7 @@ def main() -> None:
         raise SystemExit("缺少 Command Code API Key")
     persist_api_key(api_key)
     cfg = load_cfg()
-    provider = ensure_provider(cfg, PROVIDER_ID, {
+    provider, changed = ensure_provider(cfg, PROVIDER_ID, {
         "name": "Command Code",
         "kind": "openai-compatible",
         "apiFormat": "openai-chat-completions",

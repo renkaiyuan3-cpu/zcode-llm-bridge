@@ -39,16 +39,17 @@
 然后**必须**重跑：
 
 ```bash
-./scripts/install-runtime.sh
+python3 scripts/bridge.py install restore    # macOS / Linux / Windows（py -3）
+# macOS 旧入口仍可用：./scripts/install-runtime.sh
 ```
 
-（运行时副本在 `~/.zcode-proxy/`，launchd 读的是那份。）
+（运行时副本在 `~/.zcode-proxy/`，launchd / 计划任务 / systemd 读的是那份。）
 
 ### 5. 文档与表格
 
 - 新增 `docs/<name>-guide.md`（目标结构：目标 → 认证 → 档位实测 → 一键注入 → 已知坑）；
 - 更新 README 的「服务对照表」「快速开始」「端口速查表」；
-- 如有新端口/launchd 任务，补 plist 模板（用 `__HOME__` 占位符）和 `install-launchd.sh` 分支。
+- 如有新端口/常驻进程，补 `launchd/` plist、`scripts/bridge.py install` 分支，以及 Windows 计划任务名。
 
 ### 6. 提交前自查
 
@@ -60,9 +61,12 @@
 ## 其它贡献
 
 - **文档纠错**：上游接口变化导致文档失效，请提 issue 附上报错原文；
-- **跨平台**：本项目深度绑定 macOS（launchd / TCC）。Linux（systemd）移植 PR 欢迎，但请保持 macOS 方案为主文档；
+- **跨平台**：注入脚本是纯 Python，macOS / Windows 一等公民（launchd vs 计划任务）。
+  Linux 走 systemd --user（beta）。跨平台改动请同时改 `scripts/bridge.py` 和 `docs/windows-guide.md`；
 - **风格**：中文为主的文档 + 代码注释中文英文皆可；遵循现有文件的语气——重实测证据，轻空泛描述。
 
 ## 提交规范
 
- conventional commits（`feat:` / `fix:` / `docs:` / `chore:`）即可，一个 PR 一件事。
+conventional commits（`feat:` / `fix:` / `docs:` / `chore:`）即可，一个 PR 一件事。
+
+行为准则见 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)；安全问题见 [SECURITY.md](SECURITY.md)。

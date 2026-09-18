@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# 本地大模型代理管理与健康检查脚本
+# 本地大模型代理管理与健康检查脚本（macOS）。跨平台请用: python3 scripts/bridge.py status
 # 覆盖服务：
 #   1. Grok Build Proxy (com.grokbuild.proxy @ 127.0.0.1:8080)
 #   2. Antigravity Gemini CLIProxyAPI (com.cliproxyapi @ 127.0.0.1:8317)

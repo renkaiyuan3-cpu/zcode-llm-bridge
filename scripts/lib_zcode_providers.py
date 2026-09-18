@@ -107,7 +107,24 @@ def apply_reasoning(model: dict[str, Any], spec: dict[str, Any]) -> bool:
     return True
 
 
+def require_cred(path: str, label: str, hint: str) -> None:
+    """凭据不存在时：交互运行直接失败，自愈任务（quiet）则跳过该通道。"""
+    if os.path.isfile(path):
+        return
+    if quiet():
+        log(f"跳过 {label}：未找到 {path}")
+        raise SystemExit(0)
+    raise SystemExit(f"❌ 找不到 {path}\n   {hint}")
+
+
 def load_cfg(path: str = CFG) -> dict[str, Any]:
+    if not os.path.isfile(path):
+        raise SystemExit(
+            f"❌ 找不到 ZCode 配置 {path}\n"
+            "   请先安装并至少成功启动一次 ZCode 客户端（https://z.ai），\n"
+            "   它会在首次启动时生成该文件。\n"
+            "   Windows 一般为 %USERPROFILE%\\.zcode\\v2\\config.json"
+        )
     with open(path, encoding="utf-8") as f:
         return json.load(f)
 
@@ -133,24 +150,39 @@ def backup_cfg(path: str, suffix: str) -> None:
     shutil.copy(path, path + suffix)
 
 
-def ensure_provider(cfg: dict[str, Any], provider_id: str, template: dict[str, Any]) -> dict[str, Any]:
+def ensure_provider(
+    cfg: dict[str, Any], provider_id: str, template: dict[str, Any]
+) -> tuple[dict[str, Any], bool]:
+    """写入供应商模板。返回 (provider, changed)。
+
+    原先只在思考档位变化时存盘，API Key 轮换后会悄悄丢更新。
+    """
     providers = cfg.setdefault("provider", {})
     current = providers.get(provider_id)
+    changed = False
     if not isinstance(current, dict):
         providers[provider_id] = copy.deepcopy(template)
         providers[provider_id]["createdAt"] = now_ms()
         providers[provider_id]["updatedAt"] = now_ms()
-        return providers[provider_id]
+        return providers[provider_id], True
     for key in ("name", "kind", "apiFormat", "source"):
         if template.get(key) and current.get(key) != template[key]:
             current[key] = template[key]
+            changed = True
     if template.get("options"):
         options = current.setdefault("options", {})
-        options.update(template["options"])
+        for key, value in template["options"].items():
+            if options.get(key) != value:
+                options[key] = value
+                changed = True
     if template.get("headers"):
         headers = current.setdefault("headers", {})
-        headers.update(template["headers"])
-    if "enabled" in template:
+        for key, value in template["headers"].items():
+            if headers.get(key) != value:
+                headers[key] = value
+                changed = True
+    if "enabled" in template and current.get("enabled") != template["enabled"]:
         current["enabled"] = template["enabled"]
+        changed = True
     current.setdefault("models", {})
-    return current
+    return current, changed
