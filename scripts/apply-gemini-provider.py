@@ -9,6 +9,7 @@ from lib_zcode_providers import (  # noqa: E402
     anthropic_reasoning_spec,
     apply_reasoning,
     backup_cfg,
+    ensure_option_specs,
     ensure_provider,
     load_cfg,
     log,
@@ -62,6 +63,7 @@ def main() -> None:
         if mid not in keep_ids:
             del models[mid]
             changed = True
+    model_levels = {}
     for mid, name, cap, in_mod, out_mod in KEEP:
         model = models.setdefault(mid, {
             "name": name,
@@ -73,12 +75,17 @@ def main() -> None:
         model.setdefault("limit", {})["context"] = 1048576
         model.setdefault("limit", {})["output"] = 65536
         model["modalities"] = {"input": in_mod, "output": out_mod}
-        if apply_reasoning(model, anthropic_reasoning_spec(cap=cap)):
+        spec = anthropic_reasoning_spec(cap=cap)
+        model_levels[mid] = list(spec["levels"])
+        if apply_reasoning(model, spec):
             changed = True
     zcode = provider.setdefault("zcode", {})
     if zcode.get("deletedModels") != TOMBSTONES:
         zcode["deletedModels"] = TOMBSTONES
         changed = True
+    if ensure_option_specs(PROVIDER_ID, model_levels):
+        changed = True
+        log("✅ provider_config.json 档位(optionSpecs)已写入 Gemini 模型", important=True)
     if changed:
         provider["updatedAt"] = now_ms()
         backup_cfg(CFG, ".bak-antigravity")

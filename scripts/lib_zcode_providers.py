@@ -19,6 +19,7 @@ import tempfile
 from typing import Any
 
 CFG = os.path.expanduser("~/.zcode/v2/config.json")
+PROVIDER_CFG = os.path.expanduser("~/.zcode/v2/provider_config.json")
 
 ANTHROPIC_LEVELS = [("low", 4096), ("medium", 16384), ("high", 60000)]
 ANTHROPIC_XHIGH = ("xhigh", 100000)
@@ -82,10 +83,16 @@ def openai_reasoning_spec(variants: list[str], default: str = "high") -> dict[st
 
 def ui_reasoning(spec: dict[str, Any]) -> dict[str, Any]:
     variants = list(spec.get("levels", {}))
+    default = spec.get("defaultLevel", DEFAULT_LEVEL)
     return {
         "enabled": bool(variants),
+        # App(旧 opencode schema)读 variants/defaultVariant
         "variants": variants,
-        "defaultVariant": spec.get("defaultLevel", DEFAULT_LEVEL),
+        "defaultVariant": default,
+        # CLI(zcode.cjs xqa schema)读 levels/defaultLevel；
+        # 两个 schema 都不是 strict，多余键会被剥离/透传，混写安全
+        "levels": list(variants),
+        "defaultLevel": default,
     }
 
 
@@ -105,6 +112,73 @@ def apply_reasoning(model: dict[str, Any], spec: dict[str, Any]) -> bool:
     zcode["modified"] = True
     zcode["reasoning"] = spec
     return True
+
+
+def resolve_picker_provider_id(
+    name: str, fallback: str, path: str = PROVIDER_CFG
+) -> str:
+    """按 providerName 在 provider_config.json 里找选择器实际用的 providerId。
+
+    早期手动添加的供应商（如 Command Code）在选择器里是 UUID 形态，
+    与 config.json 的友好 ID 不同；写 optionSpecs 必须用选择器那个。
+    """
+    try:
+        with open(path, encoding="utf-8") as f:
+            pc = json.load(f)
+    except (OSError, ValueError):
+        return fallback
+    rules = pc.get("config", {}).get("providerConfigRules", {}).get("providerRules", [])
+    for rule in rules:
+        if isinstance(rule, dict) and rule.get("providerName") == name and rule.get("providerId"):
+            return str(rule["providerId"])
+    return fallback
+
+
+def ensure_option_specs(
+    provider_id: str,
+    model_levels: dict[str, list[str]],
+    path: str = PROVIDER_CFG,
+) -> bool:
+    """把 optionSpecs.reasoningLevel.values 写进 provider_config.json 的 modelConfigRules。
+
+    ZCode 3.14 起编辑器/选择器的档位来自模型注册表（optionSpecs），
+    与 config.json 的 variants 互补；两处都写才能稳定显示档位下拉。
+    model_levels: {model_id: [level, ...]}。返回是否有改动。
+    """
+    if not os.path.isfile(path) or not model_levels:
+        return False
+    with open(path, encoding="utf-8") as f:
+        pc = json.load(f)
+    entries = pc.get("config", {}).get("modelConfigRules", {}).get("providerModelRules")
+    if not isinstance(entries, list):
+        return False
+    index = {
+        rule.get("modelId"): i
+        for i, rule in enumerate(entries)
+        if isinstance(rule, dict) and rule.get("providerId") == provider_id
+    }
+    changed = False
+    for mid, levels in model_levels.items():
+        wanted = {"values": list(levels)}
+        i = index.get(mid)
+        if i is None:
+            entries.append({
+                "modelId": mid,
+                "config": {"optionSpecs": {"reasoningLevel": wanted}},
+                "providerId": provider_id,
+            })
+            changed = True
+            continue
+        rule = entries[i]
+        config = rule.setdefault("config", {})
+        specs = config.setdefault("optionSpecs", {})
+        if specs.get("reasoningLevel") != wanted:
+            specs["reasoningLevel"] = wanted
+            changed = True
+    if changed:
+        backup_cfg(path, ".bak-optionspecs")
+        save_cfg(pc, path)
+    return changed
 
 
 def require_cred(path: str, label: str, hint: str) -> None:

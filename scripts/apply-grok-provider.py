@@ -9,6 +9,7 @@ from lib_zcode_providers import (  # noqa: E402
     anthropic_reasoning_spec,
     apply_reasoning,
     backup_cfg,
+    ensure_option_specs,
     ensure_provider,
     load_cfg,
     log,
@@ -48,6 +49,7 @@ def main() -> None:
         "grok-4.6": ("Grok 4.6", True),
         "grok-4.5": ("Grok 4.5", False),
     }
+    model_levels = {}
     for mid, (name, include_xhigh) in specs.items():
         model = models.setdefault(mid, {
             "name": name,
@@ -62,8 +64,13 @@ def main() -> None:
             # 4.7 官方支持图像输入（4.5 只有文本）；4.6 已由 ZCode 标记，不动
             model.setdefault("modalities", {})["input"] = ["text", "image"]
             model.setdefault("zcode", {})["modalitiesConfigured"] = True
-        if apply_reasoning(model, anthropic_reasoning_spec(include_xhigh=include_xhigh)):
+        spec = anthropic_reasoning_spec(include_xhigh=include_xhigh)
+        model_levels[mid] = list(spec["levels"])
+        if apply_reasoning(model, spec):
             changed = True
+    if ensure_option_specs(PROVIDER_ID, model_levels):
+        changed = True
+        log("✅ provider_config.json 档位(optionSpecs)已写入 Grok 模型", important=True)
     if changed:
         provider["updatedAt"] = now_ms()
         backup_cfg(CFG, ".bak-grokbuild")

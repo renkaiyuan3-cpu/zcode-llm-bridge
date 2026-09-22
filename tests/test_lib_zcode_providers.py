@@ -10,10 +10,13 @@ sys.path.insert(0, os.path.join(ROOT, "scripts"))
 from lib_zcode_providers import (  # noqa: E402
     anthropic_reasoning_spec,
     apply_reasoning,
+    ensure_option_specs,
     ensure_provider,
     load_cfg,
     openai_reasoning_spec,
+    resolve_picker_provider_id,
     save_cfg,
+    ui_reasoning,
 )
 
 
@@ -67,6 +70,46 @@ class ProviderWriteTests(unittest.TestCase):
         self.assertFalse(apply_reasoning(model, spec))
         self.assertEqual(model["reasoningSpec"], spec)
         self.assertEqual(model["zcode"]["reasoning"], spec)
+
+    def test_ui_reasoning_carries_cli_levels(self):
+        # CLI(zcode.cjs)读 levels/defaultLevel，App 读 variants/defaultVariant
+        ui = ui_reasoning(anthropic_reasoning_spec(include_xhigh=True))
+        self.assertEqual(ui["variants"], ["low", "medium", "high", "xhigh"])
+        self.assertEqual(ui["levels"], ui["variants"])
+        self.assertEqual(ui["defaultLevel"], ui["defaultVariant"])
+
+    def test_ensure_option_specs_creates_and_idempotent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "provider_config.json")
+            save_cfg({"config": {"modelConfigRules": {"providerModelRules": [
+                {"modelId": "grok-4.6", "providerId": "grokbuild-local",
+                 "config": {"properties": {"contextWindow": 500000}}},
+            ]}}}, path)
+            levels = {"grok-4.7": ["low", "medium", "high", "xhigh"],
+                      "grok-4.6": ["low", "medium", "high", "xhigh"]}
+            self.assertTrue(ensure_option_specs("grokbuild-local", levels, path))
+            self.assertFalse(ensure_option_specs("grokbuild-local", levels, path))
+            pc = load_cfg(path)
+            rules = pc["config"]["modelConfigRules"]["providerModelRules"]
+            by_id = {r["modelId"]: r for r in rules}
+            self.assertEqual(
+                by_id["grok-4.7"]["config"]["optionSpecs"]["reasoningLevel"],
+                {"values": ["low", "medium", "high", "xhigh"]},
+            )
+            # 既有条目的 contextWindow 不能被覆盖
+            self.assertEqual(
+                by_id["grok-4.6"]["config"]["properties"]["contextWindow"], 500000)
+
+    def test_resolve_picker_provider_id(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "provider_config.json")
+            save_cfg({"config": {"providerConfigRules": {"providerRules": [
+                {"providerId": "uuid-1", "providerName": "Command Code"},
+            ]}}}, path)
+            self.assertEqual(
+                resolve_picker_provider_id("Command Code", "fallback", path), "uuid-1")
+            self.assertEqual(
+                resolve_picker_provider_id("不存在", "fallback", path), "fallback")
 
     def test_save_load_roundtrip(self):
         with tempfile.TemporaryDirectory() as tmp:

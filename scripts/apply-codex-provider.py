@@ -15,6 +15,7 @@ from lib_zcode_providers import (  # noqa: E402
     CFG,
     apply_reasoning,
     backup_cfg,
+    ensure_option_specs,
     ensure_provider,
     load_cfg,
     log,
@@ -125,6 +126,10 @@ def main() -> None:
     if zcode.get("deletedModels") != TOMBSTONES:
         zcode["deletedModels"] = TOMBSTONES
         changed = True
+
+    if ensure_option_specs(PROVIDER_ID, {mid: list(LEVELS) for mid, *_ in KEEP}):
+        changed = True
+        log("✅ provider_config.json 档位(optionSpecs)已写入 Codex 模型", important=True)
 
     if changed:
         provider["updatedAt"] = now_ms()

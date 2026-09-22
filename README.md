@@ -322,6 +322,35 @@ HTTP 400 Invalid option: expected one of "low"|"medium"|"high"|"xhigh"|"max"
 
 *(详细逆向调用链与代码剖析见 [docs/reasoning-spec-analysis.md](docs/reasoning-spec-analysis.md))*
 
+### 2.5 假档位的第三种变体：双配置文件 + 双 schema（ZCode 3.14+）
+
+**问题现象**：新加的模型（如 grok-4.7、Gemini 系）思考控制只有「开/关」两态，没有档位下拉；
+而老模型（grok-4.6）明明配置长得一模一样却有完整档位。
+
+**根因**：ZCode 3.14 起编辑器的档位列表来自模型注册表（CLI 守护进程 `zcode.cjs`），和旧版只读 config.json 的链路完全不同，一共要同时喂四份地方：
+
+| 位置 | 文件 | 字段 | 谁在读 |
+| :--- | :--- | :--- | :--- |
+| UI 档位标记（旧） | `~/.zcode/v2/config.json` → `provider.<id>.models.<mid>.reasoning` | `variants` / `defaultVariant` | App 端（旧 opencode schema） |
+| UI 档位标记（新） | 同上 | `levels` / `defaultLevel` | CLI 端 `zcode.cjs`（xqa schema，不认 `variants`） |
+| 真实参数注入 | 同上 | `reasoningSpec` / `zcode.reasoning` | 请求拼装（见 2.2） |
+| 注册表档位 | `~/.zcode/v2/provider_config.json` → `config.modelConfigRules.providerModelRules[]` | `config.optionSpecs.reasoningLevel.values` | CLI 模型注册表 → `list_models` → 编辑器下拉 |
+
+只写 `variants` 不写 `levels`，CLI 解析出来的模型就没有档位（`thoughtLevel.available` 为空），
+UI 退化成思考开关。两个 schema 都不是 strict，混写安全。
+
+**解法**（已进 `lib_zcode_providers.py`）：
+- `ui_reasoning()` 同时输出 `variants` + `levels` 两套键；
+- 新增 `ensure_option_specs()` 把 `optionSpecs.reasoningLevel.values` 写进 provider_config.json；
+- 新增 `resolve_picker_provider_id()`：早期手动加的供应商在选择器里是 UUID 形态条目
+  （如 Command Code 的 `1c1e8e24-...`），写 optionSpecs 必须先按 `providerName` 解析出真实 ID。
+
+**改完配置必须「退出 ZCode → 跑 apply 脚本 → 再启动」**：CLI 守护进程只在启动时读盘，
+热改文件它内存里还是旧的；而且 ZCode 退出时会用内存态回写 config.json，先改会被冲掉。
+自愈任务（第 4 节）每 60 秒补一次，覆盖「忘记先退出」的场景。
+
+*(详细逆向调用链与代码剖析见 [docs/reasoning-spec-analysis.md](docs/reasoning-spec-analysis.md))*
+
 ---
 
 ## 3. 接入实现细节

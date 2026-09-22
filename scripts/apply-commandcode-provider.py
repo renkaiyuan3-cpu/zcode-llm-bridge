@@ -16,12 +16,14 @@ from lib_zcode_providers import (  # noqa: E402
     CFG,
     apply_reasoning,
     backup_cfg,
+    ensure_option_specs,
     ensure_provider,
     load_cfg,
     log,
     now_ms,
     openai_reasoning_spec,
     quiet,
+    resolve_picker_provider_id,
     save_cfg,
 )
 
@@ -144,6 +146,13 @@ def main() -> None:
     if zcode.get("deletedModels") != DELETED_MODELS:
         zcode["deletedModels"] = DELETED_MODELS
         changed = True
+
+    # 选择器里的 Command Code 可能是 UUID 形态旧条目，optionSpecs 要写对 ID
+    picker_id = resolve_picker_provider_id("Command Code", PROVIDER_ID)
+    if ensure_option_specs(picker_id, {mid: list(VARIANTS) for mid in MODELS}):
+        changed = True
+        log(f"✅ provider_config.json 档位(optionSpecs)已写入 Command Code 模型（{picker_id}）",
+            important=True)
 
     if changed:
         provider["updatedAt"] = now_ms()
