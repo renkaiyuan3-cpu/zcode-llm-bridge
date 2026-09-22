@@ -44,6 +44,7 @@ def main() -> None:
     })
     models = provider.setdefault("models", {})
     specs = {
+        "grok-4.7": ("Grok 4.7", True),
         "grok-4.6": ("Grok 4.6", True),
         "grok-4.5": ("Grok 4.5", False),
     }
@@ -57,6 +58,10 @@ def main() -> None:
         model["name"] = name
         model.setdefault("limit", {})["context"] = 500000
         model.setdefault("limit", {})["output"] = 128000
+        if mid == "grok-4.7":
+            # 4.7 官方支持图像输入（4.5 只有文本）；4.6 已由 ZCode 标记，不动
+            model.setdefault("modalities", {})["input"] = ["text", "image"]
+            model.setdefault("zcode", {})["modalitiesConfigured"] = True
         if apply_reasoning(model, anthropic_reasoning_spec(include_xhigh=include_xhigh)):
             changed = True
     if changed:
@@ -64,6 +69,7 @@ def main() -> None:
         backup_cfg(CFG, ".bak-grokbuild")
         save_cfg(cfg)
         log("✅ Grok provider 已更新：思考档位写入 reasoning + reasoningSpec + zcode.reasoning", important=True)
+        log("   grok-4.7: low/medium/high/xhigh（默认 high），输入 text+image", important=True)
         log("   grok-4.6: low/medium/high/xhigh（默认 high）", important=True)
         log("   grok-4.5: low/medium/high（默认 high）", important=True)
     else:

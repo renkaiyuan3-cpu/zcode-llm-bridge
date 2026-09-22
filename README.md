@@ -65,7 +65,7 @@ ZCode 的自定义供应商能力很强，但把「各家 CLI 订阅」接进去
 
 | 通道 | 接入方式 | 模型 | 思考档位 |
 | :--- | :--- | :--- | :--- |
-| **Grok Build** | 本地代理 `127.0.0.1:8080` | grok-4.6 / grok-4.5 | Anthropic `thinking`，4.6 支持 xhigh |
+| **Grok Build** | 本地代理 `127.0.0.1:8080` | grok-4.7 / grok-4.6 / grok-4.5 | Anthropic `thinking`，4.7/4.6 支持 xhigh，4.7 支持图像输入 |
 | **Antigravity Gemini** | 本地代理 `127.0.0.1:8317` | gemini-3.8/3.7-flash、gemini-pro-agent | Anthropic `thinking` |
 | **Codex（ChatGPT 订阅）** | 本地代理 `127.0.0.1:8327` | gpt-6-astra、gpt-5.6-sol/terra/luna | `reasoning_effort`，5 档（超 272K 输入有计价陷阱⚠️） |
 | **OpenCode Go** | 直连官方 API | deepseek-v4.1-flash | `reasoning_effort` |
@@ -159,7 +159,21 @@ python3 scripts/bridge.py install restore     # macOS launchd / Windows 计划�
 ```
 
 没有它，ZCode 重启时会把思考档位悄悄剥掉（见[第 4 节](#4-常驻后台macos-launchd--windows-计划任务)）。
-然后**重启 ZCode 客户端**，模型选择器里即可看到新供应商。巡检：
+然后**按下面的顺序重启 ZCode**（⚠️ 顺序错了会撞上竞态，模型选择器里就什么都看不到）：
+
+```bash
+# 1) 完全退出 ZCode（Cmd+Q / 菜单退出，不要只是关窗口）
+# 2) 退出后再注入一遍（此时 ZCode 不会再用内存旧配置回写覆盖你）：
+python3 scripts/apply-grok-provider.py        # 接了哪几个通道就跑哪几个
+# 3) 确认配置里已经有你的供应商，再启动 ZCode：
+python3 -c "import json,os;print(list(json.load(open(os.path.expanduser('~/.zcode/v2/config.json')))['provider']))"
+```
+
+> **为什么会这样**：ZCode 运行时把配置放在内存里，退出时会整体回写 `config.json`。
+> 如果注入发生在 ZCode 运行期间，退出回写会把刚注入的供应商整个抹掉；
+> 自愈任务最长 60 秒后补回，但若你在补回之前就启动了 ZCode，它读到的还是没有供应商的旧文件，
+> 表现就是「明明 apply 成功了，模型选择器里却没有」——重试多少次都一样。
+> 退出后再 apply，就完全绕开了这个窗口。巡检：
 
 ```bash
 python3 scripts/bridge.py status              # 跨平台
@@ -245,7 +259,7 @@ Grok、Gemini、Codex 走本地回环代理，OpenCode Go 与 Command Code 直�
 | **供应商 ID** | `grokbuild-local` | `antigravity-gemini` | `codex-local` | `opencode-go` | `commandcode-local` |
 | **接入方式** | 本地代理 `127.0.0.1:8080` | 本地代理 `127.0.0.1:8317` | 本地代理 `127.0.0.1:8327` | 直连官方 API | 直连官方 API |
 | **协议** | Anthropic Messages | Anthropic Messages | OpenAI Compatible | OpenAI Compatible | OpenAI Compatible |
-| **模型** | `grok-4.6`, `grok-4.5` | `gemini-3.8-flash-high`, `gemini-3.7-flash-high`, `gemini-pro-agent` | `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `deepseek-v4.1-flash` | `deepseek/deepseek-v4.1-flash`, `gpt-5.6-luna` |
+| **模型** | `grok-4.7`, `grok-4.6`, `grok-4.5` | `gemini-3.8-flash-high`, `gemini-3.7-flash-high`, `gemini-pro-agent` | `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `deepseek-v4.1-flash` | `deepseek/deepseek-v4.1-flash`, `gpt-5.6-luna` |
 | **上下文窗口** | 500,000 | 1,048,576 | 1,000,000（Codex 默认 272K，可开 1M） | 1,000,000 | 1,000,000 / 1,050,000 |
 | **思考档位** | High（4.6 另有 xhigh） | High | low/medium/high/xhigh/max（默认 High） | High（`reasoning_effort`） | High（`reasoning_effort`，档位无 `off`） |
 | **速度档** | — | — | ⚠️ 上游按账号忽略，未接入 | — | — |
@@ -501,7 +515,10 @@ python3 scripts/apply-opencode-go-provider.py
 python3 scripts/apply-commandcode-provider.py
 python3 scripts/apply-codex-provider.py
 ```
-执行完毕后**重启 ZCode 客户端**即可。
+执行顺序有讲究：**先完全退出 ZCode，再跑上面的脚本，最后启动 ZCode**。
+在 ZCode 运行期间跑这些脚本，退出时的内存回写会把注入结果抹掉，
+自愈任务虽然会在 60 秒内补回，但你若抢在补回之前启动 ZCode，选择器里就看不到新供应商——
+这正是「apply 明明成功、界面却没有模型」的原因（详见[快速开始](#快速开始)末尾的说明）。
 
 ### 6.4 账号 Token 过期重新授权
 - **Grok Build 失效**：
