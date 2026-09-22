@@ -90,3 +90,33 @@ cd ~/.cliproxyapi
 launchctl kickstart -k gui/$(id -u)/com.cliproxyapi
 ```
 重新登录成功后代理立即恢复，ZCode 端无需改动即可继续使用。
+
+### 5.4 网络环境要求（受限网络必读）
+
+本通道的上游是 **`cloudcode-pa.googleapis.com`**（Google Cloud Code PA 后端），在大陆网络下无法直连。先自测：
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -m 5 https://cloudcode-pa.googleapis.com
+# 返回 403/404 都算通（那是服务器在应答）；超时/拒绝 = 需要代理
+```
+
+**最常见的坑**：CLIProxyAPI 由 launchd 托管，**不读终端的 `HTTP_PROXY`，也不读 macOS 系统代理**。
+即使 Clash 开了系统代理，ZCode 里的 Gemini 请求仍会超时——代理只覆盖了 ZCode → 本地 8317 这一段，
+本地 → Google 那一段还是裸连。
+
+**解法**：把代理写进 `~/.cliproxyapi/config.yaml` 顶层：
+
+```yaml
+proxy-url: "socks5://127.0.0.1:7890"   # 支持 socks5/http/https，换成你的实际代理
+```
+
+然后 `launchctl kickstart -k gui/$(id -u)/com.cliproxyapi` 重启生效。
+
+> 例外：代理 App 开了 TUN/增强模式（虚拟网卡接管全局路由）时无需配置，
+> `route -n get default` 显示 `utun*` 接口即属于这种形态。
+
+网络问题与凭据问题的区分方法、其余通道的代理配置，统一见 **[docs/network-environment.md](network-environment.md)**。
+
+### 5.5 上游模型目录里的「假 Claude」
+`/v1/models` 会列出 `claude-opus-4-6-thinking`、`claude-sonnet-4-6` 等条目——那是 Antigravity 账号附带的
+Claude 变体，不是独立的真 Claude 通道。本项目未接入它们（保持 Gemini 专一），ZCode 里不会出现。

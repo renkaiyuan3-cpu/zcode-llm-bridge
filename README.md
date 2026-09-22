@@ -106,6 +106,11 @@ Windows 把 `python3` 换成 `py -3`，`mkdir -p ~/.commandcode` 换成 `New-Ite
 
 ### 方式 B：订阅 OAuth → 本地代理（Grok / Gemini / Codex）
 
+> **开始前先看网络要求**：这三个通道分别要能访问 `cli-chat-proxy.grok.com`、
+> `cloudcode-pa.googleapis.com`、`chatgpt.com`，受限网络（如大陆直连）需要给代理服务
+> 单独配置 `proxy-url`（launchd 服务**不读**系统代理和终端环境变量）。详见
+> **[docs/network-environment.md](docs/network-environment.md)**。
+
 代理二进制不在本仓库。可手动从上游 Releases 下载，或一键拉取：
 
 ```bash
@@ -224,7 +229,7 @@ python3 scripts/bridge.py status              # 跨平台
 - [4. 常驻后台：macOS launchd / Windows 计划任务](#4-常驻后台macos-launchd--windows-计划任务)
 - [5. 项目目录与工具链使用说明](#5-项目目录与工具链使用说明)
 - [6. 日常运维与故障排除速查手册](#6-日常运维与故障排除速查手册)
-- [Windows 指南](docs/windows-guide.md) · [还能接什么](docs/roadmap.md)
+- [Windows 指南](docs/windows-guide.md) · [网络环境要求](docs/network-environment.md) · [还能接什么](docs/roadmap.md)
 - [致谢](#致谢) · [License 与免责](#license-与免责)
 
 ---
@@ -261,7 +266,7 @@ Grok、Gemini、Codex 走本地回环代理，OpenCode Go 与 Command Code 直�
 | **协议** | Anthropic Messages | Anthropic Messages | OpenAI Compatible | OpenAI Compatible | OpenAI Compatible |
 | **模型** | `grok-4.7`, `grok-4.6`, `grok-4.5` | `gemini-3.8-flash-high`, `gemini-3.7-flash-high`, `gemini-pro-agent` | `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `deepseek-v4.1-flash` | `deepseek/deepseek-v4.1-flash`, `gpt-5.6-luna` |
 | **上下文窗口** | 500,000 | 1,048,576 | 1,000,000（Codex 默认 272K，可开 1M） | 1,000,000 | 1,000,000 / 1,050,000 |
-| **思考档位** | High（4.6 另有 xhigh） | High | low/medium/high/xhigh/max（默认 High） | High（`reasoning_effort`） | High（`reasoning_effort`，档位无 `off`） |
+| **思考档位** | 4.7 / 4.6：low/medium/high/xhigh；4.5：low/medium/high | low/medium/high | low/medium/high/xhigh/max（默认 High） | High（`reasoning_effort`） | High（`reasoning_effort`，档位无 `off`） |
 | **速度档** | — | — | ⚠️ 上游按账号忽略，未接入 | — | — |
 
 ---
@@ -348,6 +353,9 @@ UI 退化成思考开关。两个 schema 都不是 strict，混写安全。
 **改完配置必须「退出 ZCode → 跑 apply 脚本 → 再启动」**：CLI 守护进程只在启动时读盘，
 热改文件它内存里还是旧的；而且 ZCode 退出时会用内存态回写 config.json，先改会被冲掉。
 自愈任务（第 4 节）每 60 秒补一次，覆盖「忘记先退出」的场景。
+
+**默认档位约定**：注册表的默认档位取 `values` 数组**最后一项**（CLI 源码 `defaultLevel: s.values.at(-1)`）。
+所以 grok-4.7 新选中时默认 xhigh、Codex 默认 max——都是合法档位，介意的话在下拉里选一次即可（按工作区记忆）。
 
 *(详细逆向调用链与代码剖析见 [docs/reasoning-spec-analysis.md](docs/reasoning-spec-analysis.md))*
 
@@ -535,8 +543,15 @@ python3 scripts/bridge.py restart all
 ./scripts/service-manager.sh restart-codex
 ```
 
-### 6.3 ZCode 升级后配置丢失的恢复流程
-当 ZCode 升级版本或误重置了 `~/.zcode/v2/config.json` 时，执行以下命令即可瞬间还原所有模型与思考档位：
+### 6.3 更新与升级：哪些操作会破坏配置、怎么恢复
+
+**会破坏注入的操作只有两类**：
+
+1. **ZCode 客户端升级/重置**——升级或重置会重写 `~/.zcode/v2/config.json`，注入的档位字段可能被剥掉；
+   大版本升级还可能改 CLI schema（本项目 3.14 就因此踩过「双 schema」坑，见 2.5 节），届时需关注本仓库更新。
+2. **上游代理服务重装/换凭据**——Key 变了就要重跑对应 apply 脚本同步。
+
+**恢复流程（对两类都适用）**：
 ```bash
 python3 scripts/apply-grok-provider.py
 python3 scripts/apply-gemini-provider.py
@@ -548,6 +563,15 @@ python3 scripts/apply-codex-provider.py
 在 ZCode 运行期间跑这些脚本，退出时的内存回写会把注入结果抹掉，
 自愈任务虽然会在 60 秒内补回，但你若抢在补回之前启动 ZCode，选择器里就看不到新供应商——
 这正是「apply 明明成功、界面却没有模型」的原因（详见[快速开始](#快速开始)末尾的说明）。
+
+**本仓库自身更新（`git pull`）后**，还要把新脚本同步到运行时目录，否则自愈任务跑的还是旧逻辑：
+```bash
+python3 scripts/install-runtime.sh   # 重装 ~/.zcode-proxy/ 副本
+```
+（若脚本无变化，这步可跳过；拿不准就跑一次，幂等。）
+
+**升级 ZCode 前建议**：先看本仓库 Release / README 是否有兼容性说明，再升级；升级后跑一遍上面的恢复流程
++ [6.1 巡检](#61-服务状态一键巡检)即可。日常使用中自愈任务会兜底，不必过分紧张。
 
 ### 6.4 账号 Token 过期重新授权
 - **Grok Build 失效**：
@@ -612,6 +636,52 @@ tail -20 ~/.zcode/v2/logs/restore-reasoning.err.log
 | 8080 | Grok Build Proxy | `~/.grokbuild-proxy/config.yaml` | `~/.grokbuild-proxy/data/` | 写入 ZCode 配置 |
 | 8317 | CLIProxyAPI（Gemini） | `~/.cliproxyapi/config.yaml` | `~/.cliproxyapi/auth/` | `~/.cliproxyapi/.keys` |
 | 8327 | CLIProxyAPI（Codex） | `~/.cliproxyapi/config-codex.yaml` | `~/.cliproxyapi/auth-codex/` | `~/.cliproxyapi/.keys-codex` |
+
+### 6.9 网络环境要求（Gemini / Grok / Codex 需要能到外网）
+
+三个订阅通道的上游分别是 `cloudcode-pa.googleapis.com`（Gemini）、`chatgpt.com`（Codex）、`cli-chat-proxy.grok.com`（Grok），在受限网络下需要代理。**最容易踩的坑**：这三个代理服务由 launchd 托管，**不读你终端里的 `HTTP_PROXY`，也不读 macOS 系统代理设置**——开了 Clash 系统代理但 Gemini 仍然超时，基本就是这个原因。代理必须写进各服务自己的配置（`proxy-url` / `proxy.mode`）。
+
+每个域名的连通性自测命令、三种网络形态的判断方法、每个服务的代理配置段落，全部整理在 **[docs/network-environment.md](docs/network-environment.md)**。
+
+### 6.10 Grok 全通道 503：凭据冷却陷阱（别急着重新登录）
+
+**症状**：Grok 之前一直正常，突然所有请求 503，报 `no usable upstream credentials`；`/v1/models` 却还能返回。
+
+**根因**：grokbuild-proxy 是单凭据、无 failover 的设计。**在途请求被掐断**（重启 ZCode、手滑停止生成、网络抖动）会被记成一次凭据失败，连续失败触发凭据冷却，冷却期内整条通道 503。实测冷却约 **5 分钟**，之后自愈。
+
+**处置**：
+1. **等 5 分钟再试**，不要立刻重新 device-login（重新登录无法加速冷却，反而可能把好凭据换掉）。
+2. 期间可用日志确认是冷却而不是 token 真过期：
+   ```bash
+   grep -E 'context canceled|credential' ~/.grokbuild-proxy/proxy.log | tail -5
+   ```
+   看到 `context canceled` → 就是冷却，等。
+3. 5 分钟后仍 503、且日志里有 `401` → 才走 6.4 的重新授权流程。
+
+### 6.11 新模型只有「思考开关」、没有档位下拉
+
+**症状**：新接入的模型（本项目曾发生在 grok-4.7 与 Gemini 全系）思考控制只显示开/关两态，没有 low/medium/high 下拉；而配置文件里明明写全了。
+
+**根因**：ZCode 3.14 起档位下拉的数据来自 CLI 模型注册表，它读的是 `reasoning.levels`（新 schema）和 provider_config.json 的 `optionSpecs`，不认旧版 `variants`。机制详见 [2.5 节](#25-假档位的第三种变体双配置文件--双-schema-zcode-314)。
+
+**修复**（本项目脚本已内置双写，一般更新脚本即可）：
+```bash
+git pull
+python3 scripts/install-runtime.sh        # 同步到 ~/.zcode-proxy/
+# 完全退出 ZCode，然后：
+python3 ~/.zcode-proxy/restore-reasoning.py
+# 再启动 ZCode
+```
+**验证**：模型选择器里选中该模型，思考控制应出现档位下拉（而非开关）。
+
+### 6.12 上游出了新模型（如 grok-4.8）怎么接
+
+以 grok 为例，三步：
+1. 编辑 `scripts/apply-grok-provider.py` 的 `specs` 字典，加一行 `"grok-4.8": ("Grok 4.8", True)`（第二个布尔值 = 是否带 xhigh 档）。档位取值域必须先对上游核实（见 2.4 节的教训）。
+2. 重新注入：完全退出 ZCode → `python3 scripts/apply-grok-provider.py` → 启动 ZCode（顺序原因见 6.3）。
+3. 若希望出现在选择器里，还需把模型 ID 加进 `~/.zcode/v2/provider_config.json` 对应供应商的 `personalModelIds` 与 `modelOrder`（选择器白名单，不写不显示）。
+
+Gemini / Codex / Command Code 同理，各改各的 apply 脚本模型表。
 
 ---
 

@@ -136,3 +136,37 @@ launchctl kickstart -k gui/$(id -u)/com.grokbuild.proxy
 2. 重新执行设备授权：`cd ~/.grokbuild-proxy && ./grokbuild-proxy -device-login`
 3. 重新加载服务：`launchctl load ~/Library/LaunchAgents/com.grokbuild.proxy.plist`
 4. 重新同步 Key 到 ZCode：`python3 scripts/apply-grok-provider.py`，然后重启 ZCode。
+
+### 4.4 全通道 503：凭据冷却陷阱（先别急着 4.3）
+
+**症状**：Grok 一直正常，突然全部请求 503，报 `no usable upstream credentials`；但 `/v1/models` 还能返回。
+
+**根因**：grokbuild-proxy 是**单凭据、无 failover** 的设计。**在途请求被掐断**（重启 ZCode、手动停止生成、
+网络抖动）会被记成一次凭据失败，连续失败触发凭据冷却，冷却期内整条通道 503。实测约 **5 分钟自愈**。
+
+**处置**：
+1. **等 5 分钟再试**。不要立刻 device-login——重新登录无法加速冷却，反而可能把好凭据换掉。
+2. 用日志区分冷却 vs 真过期：
+   ```bash
+   grep -E 'context canceled|credential' ~/.grokbuild-proxy/proxy.log | tail -5
+   ```
+   有 `context canceled` → 是冷却，等就行；持续 `401` → 才走 4.3 重新授权。
+
+### 4.5 `/v1/models` 里的 claude-* 是假象
+模型目录里会列出 `claude-opus-4-8`、`claude-sonnet-4-6` 等一大串 Claude 名字——它们**全部是映射到
+grok 模型的别名**，该通道没有真 Claude。接入时以 `name` 字段为准、别看 `id`，且本项目只注册
+`grok-4.7 / grok-4.6 / grok-4.5` 三个真实模型。
+
+### 4.6 网络环境（受限网络）
+上游是 `cli-chat-proxy.grok.com`，部分地区需要代理。grokbuild-proxy 由 launchd 托管，
+**不读终端环境变量**（默认 `proxy.mode: environment` 在 launchd 下等于裸连），受限网络需在
+`~/.grokbuild-proxy/config.yaml` 显式指定：
+
+```yaml
+proxy:
+  mode: url                        # environment | direct | url
+  url: "socks5://127.0.0.1:7890"
+```
+
+改完 `launchctl kickstart -k gui/$(id -u)/com.grokbuild.proxy`。连通性自测与其余通道配置见
+**[docs/network-environment.md](network-environment.md)**。
